@@ -35,9 +35,9 @@ def download_torchvision_datasets():
         
         transform = transforms.ToTensor()
         
-        # Lista completa de datasets (14 grises + 16 RGB = 30 total)
+        # Lista completa de datasets (13 grises + 14 RGB = 27 total)
         datasets_list = [
-            # DATASETS EN ESCALA DE GRISES (14)
+            # DATASETS EN ESCALA DE GRISES (13)
             ("MNIST", datasets.MNIST, {}, True),
             ("FashionMNIST", datasets.FashionMNIST, {}, True),
             ("KMNIST", datasets.KMNIST, {}, True),
@@ -51,25 +51,20 @@ def download_torchvision_datasets():
             ("QMNIST", datasets.QMNIST, {}, True),
             ("Omniglot", datasets.Omniglot, {"background": True}, False),
             ("RenderedSST2", datasets.RenderedSST2, {"split": "train"}, False),
-            ("FER2013", datasets.FER2013, {"split": "train"}, False),
             
-            # DATASETS RGB (16)
+            # DATASETS RGB (14)
             ("CIFAR10", datasets.CIFAR10, {}, True),
             ("CIFAR100", datasets.CIFAR100, {}, True),
             ("SVHN", datasets.SVHN, {"split": "train"}, False),
-            ("STL10", datasets.STL10, {"split": "train"}, False),
-            ("STL10_Unlabeled", datasets.STL10, {"split": "unlabeled"}, False),
             ("Flowers102", datasets.Flowers102, {"split": "train"}, False),
             ("OxfordIIITPet", datasets.OxfordIIITPet, {"split": "trainval"}, False),
             ("DTD", datasets.DTD, {"split": "train"}, False),
             ("GTSRB", datasets.GTSRB, {"split": "train"}, False),
             ("EuroSAT", datasets.EuroSAT, {}, False),
-            ("PCAM", datasets.PCAM, {"split": "train"}, False),
-            ("StanfordCars", datasets.StanfordCars, {"split": "train"}, False),
-            ("FGVCAircraft", datasets.FGVCAircraft, {"split": "train"}, False),
-            ("Country211", datasets.Country211, {"split": "train"}, False),
-            ("Caltech101", datasets.Caltech101, {}, False),
-            ("LFWPeople", datasets.LFWPeople, {"split": "train"}, False),
+            # ("PCAM", datasets.PCAM, {"split": "train"}, False),
+            # ("StanfordCars", datasets.StanfordCars, {"split": "train"}, False),
+            # ("Caltech101", datasets.Caltech101, {}, False),
+            # ("LFWPeople", datasets.LFWPeople, {"split": "train"}, False),
         ]
         
         total = len(datasets_list)

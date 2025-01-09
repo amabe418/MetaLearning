@@ -237,7 +237,7 @@ def interpolate_metrics_with_surrogate(df_synthetic, df_real, method='knn', k=5)
         # Actualizar DataFrame
         df_synthetic[metric] = y_synthetic
         
-        print(f"  ✓ {metric: 20s} | R² CV: {confidence:.4f} | "
+        print(f"  ✓ {metric:20s} | R² CV: {confidence:.4f} | "
               f"Range: [{y_synthetic.min():.4f}, {y_synthetic.max():.4f}]")
     
     print(f"{'='*70}\n")
@@ -269,9 +269,9 @@ def validate_synthetic_configs(df_synthetic, df_real):
         
         status = "✓" if mean_diff < 0.3 and std_diff < 0.5 else "⚠️"
         
-        print(f"  {status} {param: 20s} | "
+        print(f"  {status} {param:20s} | "
               f"Mean:  {real_mean:.4f}→{synth_mean:.4f} ({mean_diff*100:+.1f}%) | "
-              f"Std: {real_std:.4f}→{synth_std:. 4f} ({std_diff*100:+.1f}%)")
+              f"Std: {real_std:.4f}→{synth_std:.4f} ({std_diff*100:+.1f}%)")
     
     print(f"{'='*70}\n")
 
@@ -309,7 +309,7 @@ def comparative_analysis(df_real, df_synthetic, df_combined):
     for metric in TARGET_METRICS:
         if metric in df_combined.columns:
             print(f"\n  {metric}:")
-            print(f"    Real      - Mean: {df_real[metric]. mean():.4f} | "
+            print(f"    Real      - Mean: {df_real[metric].mean():.4f} | "
                   f"Std:  {df_real[metric].std():.4f} | "
                   f"Range: [{df_real[metric].min():.4f}, {df_real[metric].max():.4f}]")
             print(f"    Sintético - Mean:  {df_synthetic[metric].mean():.4f} | "

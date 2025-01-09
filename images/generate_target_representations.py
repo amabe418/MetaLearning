@@ -13,47 +13,77 @@ import time
 # ============================================================================
 DATASET_CONFIG = {
     # ========================================================================
-    # ESCALA DE GRISES (9)
+    # ESCALA DE GRISES (13)
     # ========================================================================
     'MNIST': {
-        'loader': lambda root: datasets.MNIST(root, train=True, download=True),
+        'loader': lambda root: datasets. MNIST(root, train=True, download=True),
         'test_loader': lambda root: datasets. MNIST(root, train=False, download=True),
         'num_classes': 10,
         'grayscale': True
     },
     'FashionMNIST': {
         'loader': lambda root: datasets. FashionMNIST(root, train=True, download=True),
-        'test_loader': lambda root: datasets.  FashionMNIST(root, train=False, download=True),
+        'test_loader': lambda root: datasets.FashionMNIST(root, train=False, download=True),
         'num_classes': 10,
         'grayscale': True
     },
     'KMNIST': {
-        'loader': lambda root:  datasets.KMNIST(root, train=True, download=True),
-        'test_loader':  lambda root: datasets.KMNIST(root, train=False, download=True),
+        'loader': lambda root: datasets. KMNIST(root, train=True, download=True),
+        'test_loader': lambda root: datasets.KMNIST(root, train=False, download=True),
         'num_classes': 10,
         'grayscale': True
     },
     'EMNIST': {
-        'loader': lambda root: datasets.EMNIST(root, split='letters', train=True, download=True),
+        'loader': lambda root:  datasets.EMNIST(root, split='letters', train=True, download=True),
         'test_loader':  lambda root: datasets.EMNIST(root, split='letters', train=False, download=True),
         'num_classes': 26,
         'grayscale': True
     },
+    'EMNIST_Balanced': {
+        'loader': lambda root: datasets.EMNIST(root, split='balanced', train=True, download=True),
+        'test_loader': lambda root: datasets. EMNIST(root, split='balanced', train=False, download=True),
+        'num_classes': 47,
+        'grayscale':  True
+    },
+    'EMNIST_Digits': {
+        'loader': lambda root:  datasets.EMNIST(root, split='digits', train=True, download=True),
+        'test_loader': lambda root: datasets.EMNIST(root, split='digits', train=False, download=True),
+        'num_classes': 10,
+        'grayscale': True
+    },
+    'EMNIST_MNIST': {
+        'loader': lambda root: datasets. EMNIST(root, split='mnist', train=True, download=True),
+        'test_loader': lambda root: datasets. EMNIST(root, split='mnist', train=False, download=True),
+        'num_classes':  10,
+        'grayscale': True
+    },
+    'EMNIST_ByClass': {
+        'loader':  lambda root: datasets.EMNIST(root, split='byclass', train=True, download=True),
+        'test_loader':  lambda root: datasets.EMNIST(root, split='byclass', train=False, download=True),
+        'num_classes':  62,
+        'grayscale': True
+    },
+    'EMNIST_ByMerge': {
+        'loader': lambda root: datasets. EMNIST(root, split='bymerge', train=True, download=True),
+        'test_loader': lambda root: datasets. EMNIST(root, split='bymerge', train=False, download=True),
+        'num_classes': 47,
+        'grayscale': True
+    },
     'USPS': {
-        'loader': lambda root:   datasets.USPS(root, train=True, download=True),
+        'loader': lambda root: datasets. USPS(root, train=True, download=True),
         'test_loader': lambda root: datasets.USPS(root, train=False, download=True),
         'num_classes': 10,
         'grayscale':  True
     },
     'QMNIST': {
-        'loader': lambda root: datasets. QMNIST(root, train=True, download=True),
-        'test_loader': lambda root:  datasets.QMNIST(root, train=False, download=True),
-        'num_classes':  10,
+        'loader': lambda root: datasets.QMNIST(root, train=True, download=True),
+        'test_loader': lambda root: datasets.QMNIST(root, train=False, download=True),
+        'num_classes': 10,
         'grayscale': True
     },
     'Omniglot': {
-        'loader': lambda root:  datasets.Omniglot(root, background=True, download=True),
-        'test_loader': lambda root: datasets.  Omniglot(root, background=False, download=True),
+        'loader': lambda root: datasets.Omniglot(root, background=True, download=True),
+        'test_loader': lambda root: datasets.Omniglot(root, background=False, download=True),
         'num_classes': 1623,
         'grayscale':  True
     },
@@ -61,152 +91,88 @@ DATASET_CONFIG = {
         'loader': lambda root: datasets.RenderedSST2(root, split='train', download=True),
         'test_loader': lambda root: datasets.RenderedSST2(root, split='test', download=True),
         'num_classes': 2,
-        'grayscale': True
-    },
-    'FER2013': {
-        'loader': lambda root: datasets.FER2013(root, split='train', download=True),
-        'test_loader': lambda root: datasets.FER2013(root, split='test', download=True),
-        'num_classes': 7,
-        'grayscale': True
+        'grayscale':  True
     },
     
     # ========================================================================
-    # RGB (21)
+    # RGB (14)
     # ========================================================================
     'CIFAR10': {
-        'loader': lambda root: datasets. CIFAR10(root, train=True, download=True),
-        'test_loader': lambda root:  datasets.  CIFAR10(root, train=False, download=True),
+        'loader':  lambda root: datasets.CIFAR10(root, train=True, download=True),
+        'test_loader': lambda root: datasets. CIFAR10(root, train=False, download=True),
         'num_classes': 10,
         'grayscale':  False
     },
     'CIFAR100': {
-        'loader': lambda root:   datasets.CIFAR100(root, train=True, download=True),
-        'test_loader': lambda root: datasets. CIFAR100(root, train=False, download=True),
-        'num_classes': 100,
+        'loader': lambda root: datasets. CIFAR100(root, train=True, download=True),
+        'test_loader': lambda root:  datasets.CIFAR100(root, train=False, download=True),
+        'num_classes':  100,
         'grayscale': False
     },
     'SVHN': {
-        'loader': lambda root: datasets.SVHN(root, split='train', download=True),
-        'test_loader': lambda root: datasets.SVHN(root, split='test', download=True),
-        'num_classes': 10,
-        'grayscale': False
-    },
-    'STL10':  {
-        'loader': lambda root: datasets.  STL10(root, split='train', download=True),
-        'test_loader': lambda root:   datasets. STL10(root, split='test', download=True),
+        'loader': lambda root: datasets. SVHN(root, split='train', download=True),
+        'test_loader': lambda root:  datasets.SVHN(root, split='test', download=True),
         'num_classes': 10,
         'grayscale': False
     },
     'Flowers102': {
-        'loader':  lambda root: datasets.Flowers102(root, split='train', download=True),
-        'test_loader': lambda root: datasets. Flowers102(root, split='test', download=True),
-        'num_classes': 102,
+        'loader': lambda root: datasets. Flowers102(root, split='train', download=True),
+        'test_loader': lambda root: datasets.Flowers102(root, split='test', download=True),
+        'num_classes':  102,
         'grayscale': False
     },
     'OxfordIIITPet': {
-        'loader': lambda root:  datasets.OxfordIIITPet(root, split='trainval', download=True),
+        'loader':  lambda root: datasets.OxfordIIITPet(root, split='trainval', download=True),
         'test_loader': lambda root:  datasets.OxfordIIITPet(root, split='test', download=True),
         'num_classes': 37,
-        'grayscale': False
+        'grayscale':  False
     },
-    'DTD':  {
-        'loader': lambda root: datasets.DTD(root, split='train', download=True),
+    'DTD': {
+        'loader':  lambda root: datasets.DTD(root, split='train', download=True),
         'test_loader': lambda root: datasets.DTD(root, split='test', download=True),
-        'num_classes':  47,
+        'num_classes': 47,
         'grayscale':  False
     },
     'GTSRB': {
-        'loader': lambda root: datasets.  GTSRB(root, split='train', download=True),
-        'test_loader': lambda root: datasets. GTSRB(root, split='test', download=True),
+        'loader': lambda root: datasets. GTSRB(root, split='train', download=True),
+        'test_loader': lambda root: datasets.GTSRB(root, split='test', download=True),
         'num_classes': 43,
-        'grayscale': False
+        'grayscale':  False
     },
     'EuroSAT': {
-        'loader': lambda root: datasets.EuroSAT(root, download=True),
+        'loader': lambda root: datasets. EuroSAT(root, download=True),
         'test_loader': lambda root: datasets.EuroSAT(root, download=True),
         'num_classes': 10,
         'grayscale':  False,
         'needs_split': True,
         'test_size': 0.2
-    },
-    'PCAM': {
-        'loader': lambda root: datasets.PCAM(root, split='train', download=True),
-        'test_loader': lambda root: datasets.  PCAM(root, split='test', download=True),
-        'num_classes': 2,
-        'grayscale':  False
-    },
-    'StanfordCars': {
-        'loader': lambda root: datasets. StanfordCars(root, split='train', download=True),
-        'test_loader': lambda root: datasets.StanfordCars(root, split='test', download=True),
-        'num_classes': 196,
-        'grayscale': False
-    },
-    'FGVCAircraft': {
-        'loader': lambda root: datasets.FGVCAircraft(root, split='train', download=True),
-        'test_loader': lambda root: datasets.FGVCAircraft(root, split='test', download=True),
-        'num_classes': 100,
-        'grayscale': False
-    },
-    'Country211': {
-        'loader': lambda root:  datasets.Country211(root, split='train', download=True),
-        'test_loader': lambda root: datasets.Country211(root, split='test', download=True),
-        'num_classes': 211,
-        'grayscale':  False
-    },
-    'Caltech101': {
-        'loader': lambda root: datasets. Caltech101(root, download=True),
-        'test_loader': lambda root: datasets.  Caltech101(root, download=True),
-        'num_classes': 101,
-        'grayscale': False,
-        'needs_split': True,
-        'test_size': 0.2
-    },
-    'LFWPeople': {
-        'loader': lambda root: datasets. LFWPeople(root, split='train', download=True),
-        'test_loader': lambda root: datasets.LFWPeople(root, split='test', download=True),
-        'num_classes': 5749,
-        'grayscale':  False
-    },
-    
-    # Añadir 6 más (con split manual para llegar a 30)
-    'EMNIST_Balanced': {
-        'loader': lambda root: datasets.EMNIST(root, split='balanced', train=True, download=True),
-        'test_loader': lambda root: datasets.EMNIST(root, split='balanced', train=False, download=True),
-        'num_classes': 47,
-        'grayscale':  True
-    },
-    'EMNIST_Digits': {
-        'loader': lambda root: datasets.EMNIST(root, split='digits', train=True, download=True),
-        'test_loader': lambda root: datasets.EMNIST(root, split='digits', train=False, download=True),
-        'num_classes': 10,
-        'grayscale': True
-    },
-    'EMNIST_MNIST': {
-        'loader': lambda root: datasets.  EMNIST(root, split='mnist', train=True, download=True),
-        'test_loader': lambda root: datasets. EMNIST(root, split='mnist', train=False, download=True),
-        'num_classes': 10,
-        'grayscale': True
-    },
-    'EMNIST_ByClass': {
-        'loader':  lambda root: datasets.EMNIST(root, split='byclass', train=True, download=True),
-        'test_loader':  lambda root: datasets.EMNIST(root, split='byclass', train=False, download=True),
-        'num_classes':  62,
-        'grayscale':  True
-    },
-    'EMNIST_ByMerge': {
-        'loader':  lambda root: datasets.EMNIST(root, split='bymerge', train=True, download=True),
-        'test_loader': lambda root: datasets. EMNIST(root, split='bymerge', train=False, download=True),
-        'num_classes': 47,
-        'grayscale':  True
-    },
-    'STL10_Unlabeled': {
-        'loader': lambda root: datasets. STL10(root, split='train+unlabeled', download=True),
-        'test_loader': lambda root: datasets.STL10(root, split='test', download=True),
-        'num_classes': 10,
-        'grayscale': False,
-        'needs_split': True,
-        'test_size': 0.2
-    },
+    }
+    # 'PCAM': {
+    #     'loader': lambda root: datasets. PCAM(root, split='train', download=True),
+    #     'test_loader': lambda root: datasets.PCAM(root, split='test', download=True),
+    #     'num_classes':  2,
+    #     'grayscale':  False
+    # },
+    # 'StanfordCars': {
+    #     'loader': lambda root: datasets. StanfordCars(root, split='train', download=True),
+    #     'test_loader': lambda root: datasets.StanfordCars(root, split='test', download=True),
+    #     'num_classes': 196,
+    #     'grayscale': False
+    # },
+    # 'Caltech101': {
+    #     'loader': lambda root: datasets. Caltech101(root, download=True),
+    #     'test_loader': lambda root: datasets. Caltech101(root, download=True),
+    #     'num_classes': 101,
+    #     'grayscale': False,
+    #     'needs_split': True,
+    #     'test_size': 0.2
+    # },
+    # 'LFWPeople': {
+    #     'loader': lambda root: datasets. LFWPeople(root, split='train', download=True),
+    #     'test_loader': lambda root: datasets.LFWPeople(root, split='test', download=True),
+    #     'num_classes': 5749,
+    #     'grayscale': False
+    # },
 }
 
 # ============================================================================
@@ -513,10 +479,8 @@ if __name__ == '__main__':
     DATA_ROOT = './data'
     OUTPUT_FILE = 'target_representations.csv'
     
-    # ⭐ SOLO 1 DATASET PARA PRUEBA RÁPIDA
-    datasets_list = [
-        'MNIST',  # Solo MNIST (50 MB, muy rápido)
-    ]
+    # Lista de todos los datasets configurados
+    datasets_list = list(DATASET_CONFIG.keys())
     
     results = []
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
