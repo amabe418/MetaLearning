@@ -59,9 +59,4 @@ Thumbs.db
 *.log
 
 LICENSE
-# Source code files (temporarily excluded)
-src/evaluation.py
-src/meta_features.py
-src/meta_learner.py
 
-docs/state_of_the_art/README.md

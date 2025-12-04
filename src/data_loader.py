@@ -3,6 +3,7 @@ Módulo para cargar y gestionar datasets de OpenML.
 """
 
 import openml
+from openml.tasks import TaskType
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Optional
@@ -67,6 +68,11 @@ def load_openml_datasets(dataset_ids: List[int], cache_dir: Optional[str] = None
             datasets.append(dataset)
     return datasets
 
+TASK_TYPES = {
+    'Supervised Classification': TaskType.SUPERVISED_CLASSIFICATION,
+    'Supervised Regression': TaskType.SUPERVISED_REGRESSION,
+    'Clustering': TaskType.CLUSTERING,
+}
 
 def search_openml_datasets(
     task_type: str = 'Supervised Classification',
@@ -86,8 +92,14 @@ def search_openml_datasets(
     Returns:
         DataFrame con información de datasets encontrados
     """
+
+    if task_type not in TASK_TYPES:
+        raise ValueError(f"Tipo de tarea desconocido: {task_type}") 
+    
+    print(TASK_TYPES[task_type])
+
     tasks = openml.tasks.list_tasks(
-        task_type=task_type,
+        task_type=TASK_TYPES[task_type],
         output_format='dataframe'
     )
     
