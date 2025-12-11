@@ -1,20 +1,18 @@
-from amltk.metalearning import MetaFeature, DatasetStatistic, compute_metafeatures
+"""
+Utilities to extract meta-features from OpenML datasets using amltk.
+"""
+
+from __future__ import annotations
+
+from typing import Dict
+
 import openml
 import pandas as pd
+from amltk.metalearning import DatasetStatistic, MetaFeature, compute_metafeatures
 
-dataset = openml.datasets.get_dataset(
-    2,
-    download_data=True,
-    download_features_meta_data=False,
-    download_qualities=False,
-)
-X, y, _, _ = dataset.get_data(
-    dataset_format="dataframe",
-    target=dataset.default_target_attribute,
-)
 
 class NAValues(DatasetStatistic):
-    """A mask of all NA values in a dataset"""
+    """Mask of NA values in a dataset."""
 
     @classmethod
     def compute(
@@ -27,7 +25,7 @@ class NAValues(DatasetStatistic):
 
 
 class PercentageNA(MetaFeature):
-    """The percentage of values missing"""
+    """Percentage of missing values."""
 
     dependencies = (NAValues,)
 
@@ -37,49 +35,41 @@ class PercentageNA(MetaFeature):
         x: pd.DataFrame,
         y: pd.Series | pd.DataFrame,
         dependancy_values: dict,
-    ) -> int:
+    ) -> float:
         na_values = dependancy_values[NAValues]
         n_na = na_values.sum().sum()
         n_values = int(x.shape[0] * x.shape[1])
-        return float(n_na / n_values)
+        return float(n_na / n_values) if n_values else 0.0
 
-# mfs = compute_metafeatures(X, y, features=[PercentageNA])
-# print(mfs)
 
-def extract_meta_features(X: pd.DataFrame, y: pd.Series | pd.DataFrame) -> dict:
+def _to_dense(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert sparse columns (from OpenML) to dense to avoid skew errors."""
+    return df.apply(lambda col: col.sparse.to_dense() if hasattr(col, "sparse") else col)
+
+
+def extract_meta_features(X: pd.DataFrame, y: pd.Series | pd.DataFrame) -> Dict:
     """
-    Extrae metacaracterísticas del dataset usando amltk.
-    
-    Args:
-        X: DataFrame con las características
-        y: Serie o DataFrame con la variable objetivo
+    Extrae meta-caracteristicas usando amltk. Convierte columnas dispersas a densas.
     """
-
-    return compute_metafeatures(X,y)
+    X_dense = _to_dense(X)
+    return compute_metafeatures(X_dense, y)
 
 
 def extract_meta_features_batch(datasets: pd.DataFrame) -> pd.DataFrame:
     """
-    Extrae metacaracterísticas para un lote de datasets.
-    
-    Args:
-        datasets: DataFrame con información de datasets (debe incluir 'dataset_id')
-    
-    Returns:
-        DataFrame con metacaracterísticas extraídas
+    Extrae meta-caracteristicas para un lote de datasets (columnas deben incluir 'dataset_id').
     """
     meta_features_list = []
 
     for _, row in datasets.iterrows():
-        dataset_id = row['dataset_id']
+        dataset_id = row["dataset_id"]
         dataset = openml.datasets.get_dataset(dataset_id, download_data=True)
         X, y, _, _ = dataset.get_data(
             dataset_format="dataframe",
             target=dataset.default_target_attribute,
         )
         mfs = extract_meta_features(X, y)
-        mfs['dataset_id'] = dataset_id
+        mfs["dataset_id"] = dataset_id
         meta_features_list.append(mfs)
 
     return pd.DataFrame(meta_features_list)
-    
