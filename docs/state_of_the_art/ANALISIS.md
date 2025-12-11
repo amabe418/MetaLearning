@@ -44,31 +44,39 @@ El documento está organizado en **4 secciones principales**:
 ### **Sección 2: Learning from Model Evaluations**
 
 #### 2.1. Task-Independent Recommendations
-**Concepto:** Recomendaciones de configuraciones que funcionan bien en general, sin necesidad de evaluaciones en la nueva tarea.
+**Concepto:** Recomendaciones de configuraciones que funcionan bien en general (en promedio en muchas tareas), sin necesidad de evaluaciones en la nueva tarea.
 
 **Técnicas principales:**
-- **Rankings globales:** Agregar rankings de múltiples tareas para crear un ranking global
-- **Portfolios de algoritmos:** Conjunto de configuraciones candidatas evaluadas en muchas tareas
-- **Top-K configurations:** Seleccionar las K mejores configuraciones para evaluar en la nueva tarea
+- **Rankings globales:** Construir rankings por tareas (accuracy, AUC, tiempo) y combinarlos en un ranking global estable.
+- **Portfolios de algoritmos:** Seleccionar un conjunto discreto de configuraciones probadas exhaustivamente en múltiples datasets.
+- **Top-K configurations:** Tomar las K mejores del rankings global y ejecutarlas en la nueva tarea para obtener un buen punto de partida.
 
 **Aplicación al proyecto:**
 - ✅ Pueden implementarse rankings de algoritmos basados en rendimiento en datasets de OpenML
 - ✅ Útil para warm-starting la búsqueda de algoritmos
+- ✅ reduce el costo inicial: antes de personalizar, ya partes desde configuraciones estadísticamente robustas.
 
 #### 2.2. Configuration Space Design
-**Concepto:** Aprender qué regiones del espacio de configuración son más relevantes.
+**Concepto:** En vez de buscar la mejor configuración en TODO el espacio,primero aprender qué regiones del espacio de configuración son más relevantes.
 
 **Técnicas:**
-- **Functional ANOVA:** Identificar hiperparámetros importantes según la varianza que explican
-- **Tunability:** Medir la importancia de un hiperparámetro por la ganancia de rendimiento al optimizarlo
-- **Default learning:** Aprender valores por defecto óptimos para hiperparámetros
+- **Functional ANOVA:** Se estiman qué parte de la variabilidad del rendimiento se explica por cada hiperparámetro. Los que generan gran varianza, son importantes. Los que no aportan anda, se pueden fijar o ignorar.
+- **Tunability:** En vez de empezar desde defaults manuales (C=1 en SVM) aprenden: Valores por defecto óptimo estimados a partir de miles de datasets. luego miden cuánta mejora puede obtenerse al tunear cada hiperparametro desde ese default. Esto deja claro: que hiper necesita tuning y cuáles puedes fijar sin remordimiento.
+- **Default learning:** A veces el default depende del dataset: muchos features (un defutla para max_depth)o pocas instancias. Entonces aprenden funciones simples que ahustan el default según los meta-features del dataset. Luego una prueba estadística decide: si un hiperparámetro puede quedarse fijo o si es obligatorio tunearlo.
 
 **Aplicación al proyecto:**
 - ✅ Puede ayudar a reducir el espacio de búsqueda de hiperparámetros
 - ✅ Identificar qué hiperparámetros son más importantes para diferentes tipos de datasets
+- ✅ Puede generar defaults inteligentes para cada modelo en vez de usar valores arbitrarios
+- ✅ Puede diseñar un espacio de configuración reducido que aceleera la optimización automática (Bayesian Optimization, SMAC, Optuna,...)
 
 #### 2.3. Configuration Transfer
-**Concepto:** Transferir conocimiento de tareas previas a una nueva tarea basándose en similitud empírica.
+**Concepto:** Para recomendar buenas configuraciones en una nueva tarea, no basta con mirar rankings globales; necesitas saber qué tareas previas se parecen a la nueva.
+
+**Cómo se hace:**
+- Evalúa algunas configuraciones en la nueva tarea, obtienes $P_new$
+- Comparas con evaluaciones anteriores $P_{i,j}$, encuentra treas similares
+- Ajusta el meta-learner para usar configuraciones que funcionaron en tareas similares.
 
 **Técnicas principales:**
 
@@ -90,11 +98,19 @@ El documento está organizado en **4 secciones principales**:
 - ✅ Active testing puede ser útil para selección eficiente de algoritmos
 
 #### 2.4. Learning Curves
-**Concepto:** Usar información sobre cómo mejora el rendimiento con más datos de entrenamiento.
+
+**Concepto:**
+Las curvas de aprendizaje reflejan cómo mejora el rendimiento de un modelo/configuración a medida que se agregan más datos de entrenamiento. En meta-learning, esta información se transfiere entre tareas para acelerar la búsqueda de buenas configuraciones en datasets nuevos.
 
 **Aplicación:**
-- Predecir rendimiento final basándose en curvas de aprendizaje parciales
-- Detener entrenamiento temprano si se predice bajo rendimiento
+
+* Predecir el rendimiento final de una configuración en un nuevo dataset usando **curvas parciales** y experiencia previa en otras tareas.
+* Detener el entrenamiento temprano si se predice que la configuración no será competitiva.
+* Comparar formas de curvas parciales con curvas completas de tareas anteriores para seleccionar configuraciones prometedoras.
+* Reducir el número de configuraciones a evaluar usando un **portfolio** de configuraciones históricamente efectivas y diversas.
+* Integrar métricas de eficiencia, como tiempo de entrenamiento, para optimizar el trade-off entre rendimiento y coste computacional.
+
+![learning_curve](learning_curve.png)
 
 ---
 
