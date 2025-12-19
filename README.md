@@ -166,14 +166,6 @@ predictions = meta_learner.predict(new_dataset_meta_features)
 - [Meta-Learning Survey Papers](https://arxiv.org/abs/1810.03548)
 - [AutoML and Meta-Learning](https://www.automl.org/)
 
-<!-- ## 🤝 Contribuciones
-
-Las contribuciones son bienvenidas. Por favor:
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request -->
 
 ## 👥 Autores
 
