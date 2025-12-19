@@ -116,60 +116,117 @@ Las curvas de aprendizaje reflejan cómo mejora el rendimiento de un modelo/conf
 
 ### **Sección 3: Learning from Task Properties**
 
-#### 3.1. Meta-Features
-**Concepto:** Características que describen propiedades de los datasets/tareas.
+**Concepto:** Usar propiedades de cada tarea (meta-features) para estimar similitud entre datasets y predecir qué configuraciones/modelos funcionarán mejor.
 
-**Categorías de meta-features (Tabla 1 del documento):**
+**Idea central:**
+Cada tarea se representa como un vector de meta-features. Con ellos se pueden:
+
+* Medir distancia/similitud entre tareas
+* Transferir configuraciones exitosas (“portfolio”)
+* Entrenar meta-modelos que predicen el rendimiento de configuraciones en nuevas tareas
+* Reducir el costo de exploración evitando configuraciones malas desde el inicio
+
+**Aplicación al proyecto:**
+
+* 🧩 Permite mapear tareas nuevas al espacio de datasets históricos (OpenML, etc.)
+* 🚀 Base para seleccionar configuraciones iniciales antes de entrenar
+* 🔍 Precedente directo para integrar las curvas de aprendizaje parciales
+
+---
+
+#### **3.1. Meta-Features**
+
+**Concepto:** Características numéricas que describen las propiedades estructurales, estadísticas y de complejidad de un dataset.
+
+**Categorías principales:**
 
 1. **Simples:**
-   - Número de instancias (n)
-   - Número de características (p)
-   - Número de clases (c)
-   - Valores faltantes, outliers
+
+   * Número de instancias
+   * Número de atributos
+   * Número de clases
+   * Porcentaje de valores faltantes, outliers
 
 2. **Estadísticas:**
-   - Skewness, Kurtosis
-   - Correlación, Covarianza
-   - Concentración, Sparsity
+
+   * Media, varianza, skewness, kurtosis
+   * Covarianza, correlación
+   * Sparsity, concentración
 
 3. **Basadas en información:**
-   - Entropía de clases
-   - Información mutua
-   - Coeficiente de incertidumbre
+
+   * Entropía de clases
+   * Información mutua
+   * Coeficiente de incertidumbre
 
 4. **Basadas en complejidad:**
-   - Fisher's discriminative ratio
-   - Volume of overlap
-   - Concept variation
+
+   * Fisher discriminative ratio
+   * Volume of overlap
+   * Measures de separabilidad y variación del concepto
 
 5. **Landmarking:**
-   - Rendimiento de algoritmos simples (1NN, Tree, Linear, Naive Bayes)
-   - Relative landmarks
+
+   * Rendimiento de clasificadores simples (1NN, Árbol, Regresión lineal, Naive Bayes)
+   * Relative landmarks para comparar tareas rápidamente
 
 **Aplicación al proyecto:**
-- ✅ **MUY RELEVANTE:** El proyecto ya tiene `meta_features.py` que extrae características similares
-- ✅ Pueden expandirse las meta-features según las categorías del documento
-- ✅ OpenML proporciona muchas de estas características automáticamente
+
+* 🛠️ Conectar los meta-features calculados con los del estándar en meta-learning
+* 🔄 Normalizar y reducir dimensionalidad antes de comparar tareas
+* 📦 Usar estas representaciones para buscar tareas similares y seleccionar configuraciones iniciales
+
+---
 
 #### 3.2. Learning Meta-Features
-**Concepto:** Aprender representaciones de tareas en lugar de definirlas manualmente.
 
-**Técnicas:**
-- Generar meta-features binarias basadas en comparaciones de algoritmos
-- Usar redes Siamese para aprender representaciones de tareas similares
+**Concepto:**
+En vez de definir meta-features manualmente, se pueden **aprender representaciones automáticas** que capturen similitudes entre tareas usando meta-datos de rendimiento o combinaciones de configuraciones.
 
-#### 3.3. Warm-Starting Optimization from Similar Tasks
-**Concepto:** Inicializar búsquedas de optimización con configuraciones prometedoras de tareas similares.
+**Enfoques principales:**
 
-**Técnicas:**
-- k-NN basado en meta-features para encontrar tareas similares
-- Usar mejores configuraciones de tareas similares para inicializar algoritmos genéticos o Bayesian optimization
+1. **Meta-features binarios aprendidos (comparación de configuraciones):**
+
+   * Se comparan pares de configuraciones ((\theta_a, \theta_b)) en tareas previas.
+   * Se aprende si una configuración supera a otra.
+   * Produce meta-features del tipo: “¿(\theta_a) vence a (\theta_b)?”.
+
+2. **Representaciones aprendidas desde el rendimiento (P):**
+
+   * Se aprende una función (f : P \times \Theta \rightarrow M') usando redes neuronales.
+   * Captura patrones globales de comportamiento de configuraciones.
+
+3. **Redes siamesas (si las tareas comparten el mismo input):**
+
+   * Two networks comparten pesos y reciben dos tareas distintas.
+   * Tareas similares se mapean cerca en el espacio latente.
+   * Útiles para *warm-start* en optimización bayesiana y NAS.
 
 **Aplicación al proyecto:**
-- ✅ Puede implementarse en `meta_learner.py`
-- ✅ Combinar con búsqueda de hiperparámetros
+
+* Permite extender los meta-features clásicos con representaciones aprendidas.
+* Ideal cuando el número de tareas es grande y se quiere capturar relaciones complejas.
+* Compatible con usar tus matrices (P) y configuraciones (\Theta) como entrada directa.
+
+---
+
+#### 3.3 Warm-Starting Optimization from Similar Tasks
+
+**Concepto:** Los meta-features permiten estimar qué tareas son similares y usar ese conocimiento para inicializar algoritmos de optimización.
+
+**Ideas centrales:**
+
+- **Búsqueda genética y PSO**: Seleccionar las k tareas más similares midiendo distancia L1 entre sus vectores de meta-features. De cada una se toma la mejor configuración y se usa para inicializar la optimización. 
+- **Optimización basada en modelos (SMBO):** Modelos como **SCoT** entrenan un surrogate que predice el ranking esperado de cada configuración, usando meta-features simples + PCA. Luego convierten esos rankings en probabilidades para hacer optimización bayesiana.
+- **Redes neuroanles como modelo sustituto:** Algunos métodos usan **MLPs** modificados para apredner representaciones latentes de tareas y modelar similitudes. Como no modelan incertidumbre directamente, entrenan ensembles de MLPs.
+- **Modelos más escalables:** Otros trabajos entrenan un único modelo pero solo con tareas similares, normalizando escalas para que la comparación sea consistente.
+- **Métodos prácticos y escalable:** Ver **Feurer et al.(2014-2015--Auto-sklearn)** ordenan las tareas por similitud usando 46 meta-features y usan las mejores configuraciones de las tareas más parecidas como warm-start para Bayesian Optimization. Funcioan increíblemente bien en la práctica.
+- **Filtrado colaborativo:** Se trata el problema como recomendación: tareas = usuarios, configuraciones=ítems, evaluaciones Pi,j = ratings. La matriz se factoriza para predecir configuraciones prometedoras.Necesita algunas evaluaciones iniciales (cold start), pero puede mitigarse combinando meta-features y diseño óptimo de experimentos
+
+---
 
 #### 3.4. Meta-Models
+
 **Concepto:** Modelos que aprenden la relación entre meta-features y rendimiento de configuraciones.
 
 **Tipos:**
