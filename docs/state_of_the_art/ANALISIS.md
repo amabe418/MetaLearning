@@ -259,25 +259,27 @@ Los experimentos muestran que los **árboles potenciados (boosted)** y los **ár
 **Concepto:** Recomendar pipelines completos de ML, no solo algoritmos individuales.
 
 **Aplicación:**
-- AlphaD3M: Usa reinforcement learning para construir pipelines
+- AlphaD3M: Usa reinforcement learning para construir pipelines, usando **Monte Carlo Tree Search (MCTS)** para generar pipelines.
 - Recomendación de técnicas de preprocesamiento
 
 #### 3.6. To Tune or Not to Tune?
-**Concepto:** Predecir si vale la pena optimizar hiperparámetros para un algoritmo dado.
+**Concepto:** Los meta-modelos se utilizan para decidir si conviene ajustar un algoritmo y cuánto ajustarlo, basándose en las características de la tarea, con el objetivo de reducir el número de hiperparámetros y ahorrar tiempo en escenarios con recursos limitados. Estudios específicos han desarrollado meta-modelos que indican cuándo es necesario tunear SVM, qué hiperparámetros por defecto son adecuados según la tarea, y cómo ajustar árboles de decisión, haciendo el proceso de optimización más eficiente.
 
 ---
 
-### **Sección 4: Learning from Prior Models**
+### **Sección 4: Aprendizaje a partir de modelos previos (enfocada en redes neuronales)**
+
+El último tipo de meta-datos del que podemos aprender son los **propios modelos de aprendizaje automático previos**, es decir, su estructura y los parámetros aprendidos. En esencia, queremos entrenar un meta-aprendiz **L** que aprenda cómo entrenar un (aprendiz base) $l_{new}$ para una nueva tarea $t_{new}$ dado tareas similiares y sus modelos optimizados correspondientes $l_j \in L$ donde L es el espacio de todos los modelos posibles. El aprendiz $l_j$ suele estar definido por sus parametros del modelo $W=\{w_k\}$, k = 1...K y/o por su configuracion $\theta _i \in \Theta$
 
 #### 4.1. Transfer Learning
-**Concepto:** Usar modelos entrenados en tareas fuente como punto de partida para tareas objetivo.
+**Concepto:** EL transfer learning consiste en reutilizar modelos entrenados en tareas fuentes como punto de partida para aprender una tarea objetio similar, imponiendo similitudes estructurales o parametricas entre ambos modelos. Esta idea es general y ha sido aplicada a diversos enfoques de aprendizaje automatico, incluyendo metodos de kernel, modelos bayesianos, redes bayesianas y aprendizaje por refuerzo (referencias en el pdf). 
 
 **Aplicación:**
 - Especialmente efectivo con redes neuronales
-- Pre-trained models (ej: ImageNet)
+- Pre-trained models (ej: ImageNet) se transfiere de forma muy efeciva a otras tareas visuales; no obstante , el rendimiento de la transferencia disminuye significativamente cuando la tarea objetivo es poco similar a la tarea fuente. 
 
-#### 4.2. Meta-Learning in Neural Networks
-**Concepto:** Meta-learning específico para redes neuronales.
+#### 4.2. Meta-Learning en Redes Neuronales
+**Concepto:** Consiste en crear redes neuronales recurrentes (RNN) capaces de modificar sus propios pesos. En el entrenamiento, las redes utilizan sus propios pesos de entradas adicioanles y observan sus propios errores para aprender como modificar dicho pesos en respuesta a una tarea nueva. Permite optimizar la red y el algoritmo de entrenamiento mediantes descenso por gradiente.
 
 **Técnicas históricas:**
 - RNNs que modifican sus propios pesos
@@ -285,7 +287,7 @@ Los experimentos muestran que los **árboles potenciados (boosted)** y los **ár
 - Aprender optimizadores (LSTM como optimizador)
 
 #### 4.3. Few-Shot Learning
-**Concepto:** Aprender con muy pocos ejemplos usando experiencia previa.
+**Concepto:** Problema particular de meta-learning. Entrenar un modelo de deep-learning preciso usanod solo unos pocos ejemplos de entrenamiento , aprovechando al experiencia previa con tareas muy similares para las cuales tenemos gradnes conjunto de datos disponibles. 
 
 **Técnicas principales:**
 
@@ -314,7 +316,9 @@ Los experimentos muestran que los **árboles potenciados (boosted)** y los **ár
 - ✅ Podría ser útil si se expande a problemas de visión o NLP
 
 #### 4.4. Beyond Supervised Learning
-**Concepto:** Meta-learning aplicado a otros tipos de aprendizaje.
+**Concepto:** El meta-learning no se limita a tareas (semi-)supervisadas y se ha aplicado con extios en problemas tan variados como aprendizaje por refuerzo, aprendizaje activo , estimacion de densidad y recomendacion de items. 
+
+EL modelo base puede no ser supervisado, mientras que el meta-aprendiz es supervisado , aunque otras combinaciones tambien son posibles.
 
 **Aplicaciones:**
 - Reinforcement Learning
@@ -466,3 +470,4 @@ Este documento es **extremadamente relevante** para el proyecto porque:
 
 El proyecto está bien alineado con el estado del arte y tiene una base sólida para expandirse según las técnicas presentadas en este survey.
 
+---
