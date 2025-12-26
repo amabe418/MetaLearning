@@ -2,79 +2,70 @@ import openml
 import pandas as pd
 from openml.tasks import TaskType
 
-def get_algorithm_ranking_for_dataset(
-    dataset_id,
-    metric="accuracy",
-):
-    """
-    Returns a ranking of algorithms for a given dataset
-    based on OpenML runs.
-    """
+def get_algorithm_ranking_for_dataset(dataset_id, metric="accuracy"):
 
-    # 1. Obtener tareas del dataset
     tasks = openml.tasks.list_tasks(
         data_id=dataset_id,
-        task_type= TaskType.SUPERVISED_CLASSIFICATION,
+        task_type=TaskType.SUPERVISED_CLASSIFICATION,
         output_format="dataframe"
     )
-
     if tasks.empty:
         return None
 
-    task_ids = tasks.index.tolist()
-
-    # 2. Obtener runs asociados a esas tareas
     runs = openml.runs.list_runs(
-        task=task_ids,
+        task=tasks.index.tolist(),
         output_format="dataframe"
     )
-
     if runs.empty:
         return None
 
-    # 3. Obtener información detallada de cada run para extraer las métricas
-    detailed_runs = []
-    for run_id in runs["run_id"].head(100):  # Limitar a primeros 100 para no sobrecargar
-        try:
-            run = openml.runs.get_run(run_id)
-            # Extraer el flow name
-            flow_name = run.flow_name if hasattr(run, 'flow_name') else "Unknown"
-            # Las evaluaciones están en run.evaluations
-            score = None
-            if hasattr(run, 'evaluations') and metric in run.evaluations:
-                score = run.evaluations[metric].value
-            
-            if score is not None:
-                detailed_runs.append({
-                    "run_id": run_id,
-                    "flow_name": flow_name,
-                    "score": score
-                })
-        except Exception as e:
-            continue
+    col = f"evaluation_measures.{metric}"
 
-    if not detailed_runs:
+    # Caso 1: métrica como columna
+    if col in runs.columns:
+        runs = runs[runs[col].notna()]
+        if runs.empty:
+            return None
+
+        df = runs[["flow_name", col]].rename(
+            columns={"flow_name": "algorithm", col: "score"}
+        )
+
+    else:
+        # No hay métricas usables
+        print("Métricas disponibles:")
+        print([c for c in runs.columns if c.startswith("evaluation_measures.")])
         return None
 
-    # 4. Crear DataFrame
-    df = pd.DataFrame(detailed_runs)
-
-    # 5. Agregar: mejor score por algoritmo
-    agg = df.groupby("flow_name")["score"].max().reset_index()
-    agg.columns = ["algorithm", "score"]
-
-    # 6. Ranking (mayor score = mejor)
+    agg = df.groupby("algorithm")["score"].max().reset_index()
     ranking = agg.sort_values("score", ascending=False).reset_index(drop=True)
     ranking["rank"] = ranking.index + 1
+    ranking["metric"] = metric
 
     return ranking
 
+# PROBLEMS = [3,6,9,11,12,15,31,37,44,50]
+
+# for PROBLEM in PROBLEMS:
+
+#     print("EL run numero:", PROBLEM)
+#     ranking = get_algorithm_ranking_for_dataset(PROBLEM)
+
+#     if ranking is None:
+#         print("No hay runs con métricas válidas")
+#     else:
+#         print(ranking.head())
 
 
-dataset_id = 61  # Iris dataset
-ranking = get_algorithm_ranking_for_dataset(dataset_id)
+# dataset_id   nombre
+# -----------  -------------------------
+# 3            kr-vs-kp
+# 6            letter
+# 11           balance-scale
+# 12           mfeat-factors
+# 15           breast-w
+# 31           credit-g
+# 37           diabetes
+# 44           spambase
+# 50           tic-tac-toe
 
-if ranking is not None:
-    print(ranking.head())
-else:
-    print("No ranking found for this dataset")
