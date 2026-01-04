@@ -1,8 +1,3 @@
-Sí — **hay papers y recursos que pueden servir como “roadmap académico” o guía sólida para un proyecto de meta‑learning**, aunque no existe una única fuente que cubra *todo* de manera completa (desde extracción de datos hasta recomendación de algoritmos con código listo). Lo que sí hay son **estudios, datasets, código y repositorios que puedes usar como referencias concretas para cada parte del roadmap**.
-
-Aquí te dejo una lista útil de **papers, recursos y repositorios** relevantes:
-
----
 
 ## 📚 **Papers académicos que funcionan como roadmap parcial**
 

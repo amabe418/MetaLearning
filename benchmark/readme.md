@@ -5,5 +5,9 @@
 - Por cada `task` extraimos entonces la cantidad de `runs`
 
 ```bash
-python knn_l1.py   --target-csv target.csv   --pool-csv openml_cc18_metafeatures_selected_norm.csv   --out-csv neighbors.csv   --k 5
+python benchmark/knn_l1.py   --target-csv benchmark/target.csv   --pool-csv original_datasets.csv   --out-csv benchmark/neighbors.csv   --k 5
+```
+
+```bash
+python benchmark/portfolio_ranking.py   --neighbors-csv benchmark/neighbors.csv   --performance-csv original_datasets.csv   --output-csv benchmark/ranking.csv   --top-k 5
 ```

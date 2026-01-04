@@ -27,12 +27,15 @@ def knn_for_target(
     """
 
     # Extraer ID del target
-    target_id = target_df.iloc[0]["dataset_id"]
+    target_id = target_df.iloc[0]["openml_task"]
+    
+    print(target_id)
 
-    # Extraer features
-    target_features = target_df.drop(columns=["dataset_id"]).to_numpy(dtype=float)[0]
-    pool_ids = pool_df["dataset_id"].tolist()
-    pool_features = pool_df.drop(columns=["dataset_id"]).to_numpy(dtype=float)
+    # Excluir columnas no numéricas: identificador, flow y métrica de rendimiento
+    exclude_cols = ["openml_task", "flow", "area_under_roc_curve"]
+    target_features = target_df.drop(columns=exclude_cols).to_numpy(dtype=float)[0]
+    pool_ids = pool_df["openml_task"].tolist()
+    pool_features = pool_df.drop(columns=exclude_cols).to_numpy(dtype=float)
 
     # NaN masks
     target_nan = np.isnan(target_features)
@@ -52,9 +55,17 @@ def knn_for_target(
     # Ordenar por distancia
     dists.sort(key=lambda x: x[1])
 
-    # Top-K
+    # Agrupar por openml_task: tomar solo uno de cada dataset (todos tienen mismas meta-features)
+    seen_tasks = set()
+    unique_dists = []
+    for task_id, dist in dists:
+        if task_id not in seen_tasks:
+            seen_tasks.add(task_id)
+            unique_dists.append((task_id, dist))
+    
+    # Top-K de datasets únicos
     rows = []
-    for rank, (neighbor_id, dist) in enumerate(dists[:k], start=1):
+    for rank, (neighbor_id, dist) in enumerate(unique_dists[:k], start=1):
         rows.append({
             "target_dataset": target_id,
             "neighbor_id": neighbor_id,
@@ -84,8 +95,8 @@ def main() -> None:
     pool_df = pd.read_csv(Path(args.pool_csv))
 
     for df, name in [(target_df, "target"), (pool_df, "pool")]:
-        if "dataset_id" not in df.columns:
-            raise RuntimeError(f"{name} CSV must include 'dataset_id'")
+        if "openml_task" not in df.columns:
+            raise RuntimeError(f"{name} CSV must include 'openml_task'")
 
     if len(target_df) != 1:
         raise RuntimeError("Target CSV must contain exactly one dataset")
