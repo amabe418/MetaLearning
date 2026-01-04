@@ -16,50 +16,88 @@ def l1_distance(a: np.ndarray, b: np.ndarray, a_nan: np.ndarray, b_nan: np.ndarr
 
     return float(np.sum(diff))
 
-
-def compute_knn(
-    df: pd.DataFrame,
+def knn_for_target(
+    target_df: pd.DataFrame,
+    pool_df: pd.DataFrame,
     k: int,
 ) -> pd.DataFrame:
-    ids = df["dataset_id"].tolist()
-    features = df.drop(columns=["dataset_id"])
-    values = features.to_numpy(dtype=float)
-    nan_mask = np.isnan(values)
+    """
+    target_df: DataFrame con UNA fila (dataset objetivo)
+    pool_df: DataFrame con datasets históricos
+    """
 
+    # Extraer ID del target
+    target_id = target_df.iloc[0]["dataset_id"]
+
+    # Extraer features
+    target_features = target_df.drop(columns=["dataset_id"]).to_numpy(dtype=float)[0]
+    pool_ids = pool_df["dataset_id"].tolist()
+    pool_features = pool_df.drop(columns=["dataset_id"]).to_numpy(dtype=float)
+
+    # NaN masks
+    target_nan = np.isnan(target_features)
+    pool_nan = np.isnan(pool_features)
+
+    dists = []
+
+    for i in range(len(pool_ids)):
+        dist = l1_distance(
+            target_features,
+            pool_features[i],
+            target_nan,
+            pool_nan[i],
+        )
+        dists.append((pool_ids[i], dist))
+
+    # Ordenar por distancia
+    dists.sort(key=lambda x: x[1])
+
+    # Top-K
     rows = []
-    n = len(ids)
-    for i in range(n):
-        dists = []
-        for j in range(n):
-            if i == j:
-                continue
-            dist = l1_distance(values[i], values[j], nan_mask[i], nan_mask[j])
-            dists.append((ids[j], dist))
-        dists.sort(key=lambda x: x[1])
-        for rank, (neighbor_id, dist) in enumerate(dists[:k], start=1):
-            rows.append({
-                "dataset_id": ids[i],
-                "neighbor_id": neighbor_id,
-                "distance_l1": dist,
-                "rank": rank,
-            })
+    for rank, (neighbor_id, dist) in enumerate(dists[:k], start=1):
+        rows.append({
+            "target_dataset": target_id,
+            "neighbor_id": neighbor_id,
+            "distance_l1": dist,
+            "rank": rank,
+        })
+
     return pd.DataFrame(rows)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="KNN with L1 distance for meta-features")
-    parser.add_argument("--in-csv", type=str, required=True, help="Input normalized metafeatures CSV")
-    parser.add_argument("--out-csv", type=str, required=True, help="Output neighbors CSV")
-    parser.add_argument("--k", type=int, default=5, help="Number of neighbors")
+    parser = argparse.ArgumentParser(
+        description="KNN for a target dataset using L1 distance on meta-features"
+    )
+    parser.add_argument("--target-csv", type=str, required=True,
+                        help="CSV with meta-features of the target dataset (1 row)")
+    parser.add_argument("--pool-csv", type=str, required=True,
+                        help="CSV with historical datasets meta-features")
+    parser.add_argument("--out-csv", type=str, required=True,
+                        help="Output CSV with K nearest neighbors")
+    parser.add_argument("--k", type=int, default=5,
+                        help="Number of neighbors")
+
     args = parser.parse_args()
 
-    df = pd.read_csv(Path(args.in_csv))
-    if "dataset_id" not in df.columns:
-        raise RuntimeError("Input CSV must include dataset_id")
+    target_df = pd.read_csv(Path(args.target_csv))
+    pool_df = pd.read_csv(Path(args.pool_csv))
 
-    knn_df = compute_knn(df, k=args.k)
+    for df, name in [(target_df, "target"), (pool_df, "pool")]:
+        if "dataset_id" not in df.columns:
+            raise RuntimeError(f"{name} CSV must include 'dataset_id'")
+
+    if len(target_df) != 1:
+        raise RuntimeError("Target CSV must contain exactly one dataset")
+
+    knn_df = knn_for_target(
+        target_df=target_df,
+        pool_df=pool_df,
+        k=args.k
+    )
+
     knn_df.to_csv(Path(args.out_csv), index=False)
-    print(f"[OK] Output: {args.out_csv}")
+    print(f"[OK] Neighbors saved to {args.out_csv}")
 
 
 if __name__ == "__main__":
