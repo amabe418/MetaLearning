@@ -1,0 +1,2 @@
+task_name,task_id,flow,auc,run_id,F,M,I,P,S,W,num-slots,D,H,N,R,Tl,V,seed,L,A,K,B,C,E,X,Q,G,model,precision
+anneal_task-1,1,avNNet,0.522177,24688,weka.filters.supervised.attribute.Discretize,40.0,10,100,1,weka.classifiers.trees.J48,1,3,a,0.5,first-last,5.0E-4,0.001,1,0.01,true,0,10,250007,-3,10,weka.classifiers.bayes.net.search.local.K2,0.01,/Users/joa/Downloads/weka-3-7-12,6
