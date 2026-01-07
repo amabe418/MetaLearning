@@ -8,3 +8,4 @@ def load_config(file_name: str):
 
 datasets = load_config("datasets.yaml")
 models = load_config("models.yaml")
+benchmarks = load_config("benchmarks.yaml")["benchmarks"]

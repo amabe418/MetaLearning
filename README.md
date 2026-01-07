@@ -166,6 +166,7 @@ predictions = meta_learner.predict(new_dataset_meta_features)
 - [Meta-Learning Survey Papers](https://arxiv.org/abs/1810.03548)
 - [AutoML and Meta-Learning](https://www.automl.org/)
 - [PIPES] https://github.com/cynthiamaia/PIPES/
+- https://github.com/mfeurer?tab=repositories
 
 
 ## 👥 Autores
