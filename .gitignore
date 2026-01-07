@@ -64,3 +64,6 @@ report/*
 !report/matcom.jpeg
 !report/ML_Report.pdf
 !report/ML_Report.tex
+
+# Images data
+images/data
