@@ -1,0 +1,35 @@
+\begin{table}[h]
+\centering
+\caption{Results for ADABOOST}
+\label{tab:adaboost}
+\begin{tabular}{lcccc}
+\toprule
+Method & NR ($\downarrow$) & SR ($\downarrow$) & AUC ($\uparrow$) & Time to 95\% \\
+\midrule
+FSBO & \textbf{$0.1998 \pm 0.1854$} & $0.0477 \pm 0.0475$ & $0.7246 \pm 0.1739$ & $3.4$ \\
+GP-RS & $0.2140 \pm 0.1691$ & $0.0510 \pm 0.0421$ & $0.6738 \pm 0.1587$ & $6.3$ \\
+RANDOM & $0.2209 \pm 0.1965$ & $0.0530 \pm 0.0497$ & $0.6821 \pm 0.1706$ & $7.1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+
+\begin{table}[h]
+\centering
+\caption{Statistical Comparisons (Wilcoxon signed-rank test)}
+\label{tab:comparisons}
+\begin{tabular}{llccc}
+\toprule
+Method 1 & Method 2 & NR p-value & AUC p-value & Winner \\
+\midrule
+FSBO & RANDOM & $0.3717$ & \textbf{$0.0194$}* & TIE \\
+FSBO & GP-RS & $0.7808$ & \textbf{$0.0330$}* & TIE \\
+RANDOM & GP-RS & $0.5318$ & $0.8864$ & TIE \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize * indicates $p < 0.05$} \\
+\end{tabular}
+\end{table}
+
+
