@@ -235,6 +235,205 @@ Donde $\phi_\theta$ es una red neuronal que transforma los hiperparametros a un 
     \item La red $\phi$ aprende una representacion donde la cercania SI implica rendimiento similar
 \end{itemize}
 
+% =============================================================================
+% SECCION 3.4: ARQUITECTURA DETALLADA DEL MODELO
+% =============================================================================
+\subsection{Arquitectura Detallada del Modelo FSBO}
+
+Esta seccion describe en detalle la arquitectura completa del modelo FSBO, sus componentes y como interactuan.
+
+\subsubsection{Vision General de la Arquitectura}
+
+El modelo FSBO consta de dos componentes principales que trabajan juntos:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.8cm,
+    layer/.style={rectangle, draw, minimum width=2.5cm, minimum height=0.6cm, align=center, font=\small},
+    arrow/.style={->, thick},
+    label/.style={font=\footnotesize}
+]
+    % Deep Kernel Network (izquierda)
+    \node[layer, fill=blue!20] (input) {Input: $\mathbf{x} \in \mathbb{R}^d$};
+    \node[layer, fill=blue!30, below=of input] (h1) {Linear(d, 128) + ReLU};
+    \node[layer, fill=blue!30, below=of h1] (h2) {Linear(128, 128) + ReLU};
+    \node[layer, fill=blue!40, below=of h2] (latent) {Latent: $\phi(\mathbf{x}) \in \mathbb{R}^{128}$};
+    
+    % GP (derecha)
+    \node[layer, fill=green!20, below=of latent] (kernel) {RBF Kernel + Scale};
+    \node[layer, fill=green!30, below=of kernel] (gp) {Gaussian Process};
+    \node[layer, fill=orange!30, below=of gp] (output) {Output: $\mu(\mathbf{x}), \sigma(\mathbf{x})$};
+    
+    % Flechas
+    \draw[arrow] (input) -- (h1);
+    \draw[arrow] (h1) -- (h2);
+    \draw[arrow] (h2) -- (latent);
+    \draw[arrow] (latent) -- (kernel);
+    \draw[arrow] (kernel) -- (gp);
+    \draw[arrow] (gp) -- (output);
+    
+    % Etiquetas
+    \node[left=0.5cm of h1, label] {DKN};
+    \node[left=0.5cm of kernel, label] {DKGP};
+    
+    % Caja DKN
+    \begin{scope}[on background layer]
+        \node[draw=blue!50, dashed, rounded corners, fit=(input)(h1)(h2)(latent), inner sep=0.2cm, label=above:{\textbf{DeepKernelNetwork}}] {};
+    \end{scope}
+    
+    % Caja GP
+    \begin{scope}[on background layer]
+        \node[draw=green!50, dashed, rounded corners, fit=(kernel)(gp)(output), inner sep=0.2cm, label=above:{\textbf{DeepKernelGP}}] {};
+    \end{scope}
+\end{tikzpicture}
+\caption{Arquitectura completa del modelo FSBO}
+\end{figure}
+
+\subsubsection{Componente 1: DeepKernelNetwork (DKN)}
+
+La red neuronal $\phi_\theta: \mathbb{R}^d \rightarrow \mathbb{R}^{128}$ transforma hiperparametros crudos a un espacio latente.
+
+\textbf{Definicion matematica}:
+\begin{align}
+    \mathbf{h}_1 &= \text{ReLU}(W_1 \mathbf{x} + \mathbf{b}_1), \quad W_1 \in \mathbb{R}^{128 \times d} \\
+    \mathbf{h}_2 &= \text{ReLU}(W_2 \mathbf{h}_1 + \mathbf{b}_2), \quad W_2 \in \mathbb{R}^{128 \times 128} \\
+    \phi_\theta(\mathbf{x}) &= \mathbf{h}_2
+\end{align}
+
+\textbf{Parametros totales de DKN}:
+\begin{equation}
+    |\theta_{DKN}| = d \times 128 + 128 + 128 \times 128 + 128 = 128d + 16,640
+\end{equation}
+
+Para AdaBoost ($d=8$): $|\theta_{DKN}| = 17,664$ parametros.
+
+\subsubsection{Componente 2: DeepKernelGP (DKGP)}
+
+El GP opera en el espacio latente usando:
+
+\textbf{Funcion de media}:
+\begin{equation}
+    m(\mathbf{x}) = c, \quad c \in \mathbb{R} \text{ (constante aprendida)}
+\end{equation}
+
+\textbf{Funcion de covarianza (kernel)}:
+\begin{equation}
+    k(\mathbf{x}, \mathbf{x}') = \sigma_f^2 \cdot \exp\left(-\frac{1}{2} \sum_{i=1}^{128} \frac{(\phi_i(\mathbf{x}) - \phi_i(\mathbf{x}'))^2}{\ell_i^2}\right)
+\end{equation}
+
+Donde:
+\begin{itemize}
+    \item $\sigma_f^2$: Varianza de senal (outputscale)
+    \item $\ell_i$: Lengthscale para dimension $i$ (ARD - Automatic Relevance Determination)
+\end{itemize}
+
+\textbf{Prediccion posterior}:
+Dado un conjunto de observaciones $\mathcal{D} = \{(X, \mathbf{y})\}$, para un nuevo punto $\mathbf{x}^*$:
+
+\begin{align}
+    \mu(\mathbf{x}^*) &= m(\mathbf{x}^*) + \mathbf{k}_{*}^T (K + \sigma_n^2 I)^{-1} (\mathbf{y} - \mathbf{m}) \\
+    \sigma^2(\mathbf{x}^*) &= k(\mathbf{x}^*, \mathbf{x}^*) - \mathbf{k}_{*}^T (K + \sigma_n^2 I)^{-1} \mathbf{k}_{*}
+\end{align}
+
+Donde:
+\begin{itemize}
+    \item $K \in \mathbb{R}^{n \times n}$: Matriz de covarianza, $K_{ij} = k(\mathbf{x}_i, \mathbf{x}_j)$
+    \item $\mathbf{k}_{*} \in \mathbb{R}^n$: Vector de covarianzas, $k_{*i} = k(\mathbf{x}^*, \mathbf{x}_i)$
+    \item $\sigma_n^2$: Varianza del ruido (likelihood noise)
+\end{itemize}
+
+\subsubsection{Funcion de Perdida: Marginal Log-Likelihood}
+
+El modelo se entrena maximizando la log-verosimilitud marginal:
+
+\begin{equation}
+    \log p(\mathbf{y} | X, \theta) = -\frac{1}{2}\mathbf{y}^T (K + \sigma_n^2 I)^{-1} \mathbf{y} - \frac{1}{2}\log |K + \sigma_n^2 I| - \frac{n}{2}\log(2\pi)
+\end{equation}
+
+Esta funcion:
+\begin{itemize}
+    \item \textbf{Primer termino}: Penaliza predicciones lejanas de las observaciones
+    \item \textbf{Segundo termino}: Penaliza modelos demasiado complejos (regularizacion)
+    \item \textbf{Tercer termino}: Constante de normalizacion
+\end{itemize}
+
+\subsubsection{Tabla de Hiperparametros del Modelo}
+
+\begin{table}[H]
+\centering
+\caption{Hiperparametros del modelo FSBO y sus valores por defecto}
+\begin{tabular}{llll}
+\toprule
+\textbf{Componente} & \textbf{Hiperparametro} & \textbf{Valor} & \textbf{Descripcion} \\
+\midrule
+\multirow{3}{*}{DKN} 
+    & hidden\_dim & 128 & Dimension de capas ocultas \\
+    & n\_layers & 2 & Numero de capas ocultas \\
+    & activation & ReLU & Funcion de activacion \\
+\midrule
+\multirow{3}{*}{DKGP} 
+    & mean & Constant & Tipo de funcion de media \\
+    & kernel & ScaleKernel(RBF) & Kernel con ARD \\
+    & ard\_num\_dims & 128 & Dimensiones para ARD \\
+\midrule
+\multirow{4}{*}{Training} 
+    & n\_iterations & 2000 & Iteraciones de meta-training \\
+    & batch\_size & 50 & Muestras por batch \\
+    & learning\_rate & 0.001 & Tasa de aprendizaje \\
+    & optimizer & Adam & Optimizador \\
+\midrule
+\multirow{3}{*}{Fine-tuning} 
+    & n\_epochs & 20 & Epocas de fine-tuning \\
+    & learning\_rate & 0.0001 & LR reducido para fine-tuning \\
+    & frequency & 5 & Cada cuantas observaciones \\
+\midrule
+\multirow{2}{*}{Acquisition} 
+    & xi & 0.01 & Factor de exploracion (EI) \\
+    & n\_candidates & 1000 & Candidatos para optimizar EI \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Flujo de Datos Durante Inferencia}
+
+\begin{algorithm}[H]
+\caption{Forward Pass de FSBO}
+\begin{algorithmic}[1]
+\REQUIRE Hiperparametros $\mathbf{x} \in \mathbb{R}^d$, Observaciones $\mathcal{D} = \{(X, \mathbf{y})\}$
+\ENSURE Media $\mu(\mathbf{x})$, Varianza $\sigma^2(\mathbf{x})$
+\STATE $\mathbf{z} \leftarrow \phi_\theta(\mathbf{x})$ \COMMENT{Proyectar a espacio latente}
+\STATE $Z \leftarrow \phi_\theta(X)$ \COMMENT{Proyectar observaciones}
+\STATE $K \leftarrow k(Z, Z)$ \COMMENT{Matriz de covarianza}
+\STATE $\mathbf{k}_* \leftarrow k(\mathbf{z}, Z)$ \COMMENT{Covarianzas con nuevo punto}
+\STATE $\alpha \leftarrow (K + \sigma_n^2 I)^{-1} \mathbf{y}$ \COMMENT{Resolver sistema lineal}
+\STATE $\mu \leftarrow m(\mathbf{x}) + \mathbf{k}_*^T \alpha$
+\STATE $\sigma^2 \leftarrow k(\mathbf{z}, \mathbf{z}) - \mathbf{k}_*^T (K + \sigma_n^2 I)^{-1} \mathbf{k}_*$
+\RETURN $\mu, \sigma^2$
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{Complejidad Computacional}
+
+\begin{table}[H]
+\centering
+\caption{Complejidad computacional de las operaciones principales}
+\begin{tabular}{lll}
+\toprule
+\textbf{Operacion} & \textbf{Complejidad} & \textbf{Comentario} \\
+\midrule
+Forward DKN & $O(d \cdot h + h^2)$ & $h=128$, $d=$ dim input \\
+Calcular $K$ & $O(n^2 \cdot h)$ & $n=$ num observaciones \\
+Invertir $(K + \sigma^2 I)$ & $O(n^3)$ & Cuello de botella \\
+Prediccion & $O(n^2)$ & Por punto nuevo \\
+\midrule
+\textbf{Total prediccion} & $O(n^3)$ & Dominado por inversion \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Nota}: Para $n < 100$ (tipico en HPO), la complejidad cubica es manejable. Para $n$ grande, se usarian aproximaciones (inducing points).
+
 \subsection{Meta-Learning y Task Augmentation}
 
 \subsubsection{Meta-Learning}
