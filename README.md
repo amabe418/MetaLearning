@@ -1,180 +1,198 @@
-# MetaLearning Project
+# FSBO: Few-Shot Bayesian Optimization para Optimización de Hiperparámetros
 
-> **Proyecto Académico**  
-> Este proyecto ha sido desarrollado para la asignatura de **Machine Learning** de la carrera de **Ciencia de la Computación** de la **Facultad de Matemática y Computación** de la **Universidad de la Habana**.
+Sistema de **Transfer Learning** para optimización de hiperparámetros usando **Few-Shot Bayesian Optimization (FSBO)**.
 
-Proyecto de investigación en **Meta-Learning** (Aprendizaje de Aprendizaje) que busca desarrollar y evaluar algoritmos capaces de aprender a aprender de manera eficiente.
+## 🎯 Problema
 
-## 📋 Descripción
+La **optimización de hiperparámetros (HPO)** es costosa:
+- Cada evaluación requiere entrenar un modelo completo
+- Los espacios de búsqueda son grandes
+- Empezar desde cero en cada nuevo dataset es ineficiente
 
-Este proyecto se enfoca en el estudio y desarrollo de técnicas de meta-learning, donde los modelos aprenden a adaptarse rápidamente a nuevas tareas con pocos ejemplos (few-shot learning) o a seleccionar y configurar automáticamente algoritmos de machine learning para diferentes datasets.
+**Solución**: Usar conocimiento de tareas previas (transfer learning) para optimizar más rápido en nuevas tareas.
 
-## 🎯 Objetivos
+## 🧠 ¿Qué es FSBO?
 
-- **Análisis de características de datasets**: Extraer metadatos y características relevantes de diferentes datasets para entender qué algoritmos funcionan mejor en cada contexto.
-- **Predicción de rendimiento de algoritmos**: Predecir qué algoritmo de ML tendrá mejor rendimiento en un dataset nuevo basándose en características meta.
-- **Selección automática de modelos**: Desarrollar sistemas que recomienden automáticamente el mejor algoritmo y sus hiperparámetros para un dataset dado.
-- **Few-shot learning**: Implementar y evaluar modelos que puedan aprender nuevas tareas con pocos ejemplos.
+FSBO (Few-Shot Bayesian Optimization) es un método que:
 
-## 📊 Fuentes de Datos
+1. **Pre-entrena** un modelo surrogate (Deep Kernel GP) en múltiples tareas
+2. **Transfiere** el conocimiento a nuevas tareas
+3. **Optimiza** con pocas evaluaciones gracias al conocimiento previo
 
-### OpenML
-Utilizaremos datasets de [OpenML](https://www.openml.org/), una plataforma abierta que proporciona:
-- Miles de datasets públicos con metadatos estructurados
-- Resultados de experimentos de machine learning
-- Características meta de datasets (número de instancias, características, clases, etc.)
-- API fácil de usar para descargar datasets y metadatos
+**Paper**: Wistuba & Grabocka (2021) - *Few-Shot Bayesian Optimization with Deep Kernel Surrogates* (ICLR)
 
-### Otras fuentes potenciales
-- UCI Machine Learning Repository
-- Kaggle datasets
-- Datasets sintéticos generados para casos específicos
-
-## 🛠️ Tecnologías y Herramientas
-
-- **Python 3.8+**
-- **scikit-learn**: Para algoritmos de machine learning base
-- **OpenML**: Para descarga y gestión de datasets
-- **pandas**: Para manipulación de datos
-- **numpy**: Para operaciones numéricas
-- **matplotlib/seaborn**: Para visualizaciones
-- **jupyter**: Para notebooks de análisis
-- **optuna/hyperopt**: Para optimización de hiperparámetros
-- **meta-learn**: Librerías especializadas en meta-learning (si aplica)
-
-## 📁 Estructura del Proyecto (versión inicial)
+## 📁 Estructura del Proyecto
 
 ```
-MetaLearning-/
-├── README.md
-├── requirements.txt
+transfer-learning/
 ├── data/
-│   ├── raw/              # Datasets descargados de OpenML
-│   ├── processed/        # Datasets preprocesados
-│   └── meta_features/    # Características meta extraídas
-├── notebooks/
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_meta_feature_extraction.ipynb
-│   └── 03_meta_learning_experiments.ipynb
-├── src/
-│   ├── __init__.py
-│   ├── data_loader.py    # Funciones para cargar datos de OpenML
-│   ├── meta_features.py  # Extracción de características meta
-│   ├── meta_learner.py   # Implementación de meta-learning
-│   └── evaluation.py     # Métricas y evaluación
+│   ├── configspace/                    # Espacios de hiperparámetros
+│   └── representation_with_scores/     # Datos con métricas
+├── scripts/
+│   ├── generate_synthetic_scores.py    # Generador de datos
+│   ├── train_fsbo.py                   # Entrenamiento del modelo
+│   ├── fsbo_optimizer.py               # API observe/suggest
+│   ├── metrics.py                      # Métricas de evaluación
+│   ├── baselines.py                    # Métodos de comparación
+│   ├── experiments.py                  # Framework K-Fold CV
+│   └── visualize.py                    # Visualizaciones
 ├── experiments/
-│   └── results/          # Resultados de experimentos
-└── docs/
-    ├── state_of_the_art/  # Estado del arte 
+│   ├── checkpoints/                    # Modelos entrenados
+│   ├── results/                        # Resultados JSON
+│   └── figures/                        # Gráficos
+├── doc/
+│   ├── technical_report.pdf            # Documentación técnica
+│   └── experimental_report.pdf         # Resultados experimentales
+└── requirements.txt
 ```
 
 ## 🚀 Instalación
 
-### Opción 1: Script Automático (Recomendado)
-
-Ejecuta el script `run.sh` que configura automáticamente el entorno:
-
 ```bash
-chmod +x run.sh
-./run.sh
-```
+# Clonar repositorio
+git clone https://github.com/usuario/MetaLearning-.git
+cd MetaLearning-/transfer-learning
 
-El script:
-- Verifica que Python 3 esté instalado
-- Crea el entorno virtual si no existe
-- Instala todas las dependencias
-- Ofrece opciones para ejecutar el proyecto
-
-### Opción 2: Instalación Manual
-
-1. Clonar el repositorio:
-```bash
-git clone https://github.com/tu-usuario/MetaLearning-.git
-cd MetaLearning-
-```
-
-2. Crear un entorno virtual:
-```bash
+# Crear entorno virtual (opcional)
 python -m venv venv
-source venv/bin/activate  # En Windows: venv\Scripts\activate
-```
+source venv/bin/activate  # Linux/Mac
+# o: venv\Scripts\activate  # Windows
 
-3. Instalar dependencias:
-```bash
+# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-## 📝 Uso
+## 📦 Dependencias
 
-### Descargar datasets de OpenML
-
-```python
-from src.data_loader import load_openml_dataset
-
-# Cargar un dataset específico por ID
-dataset = load_openml_dataset(dataset_id=1)
-
-# Cargar múltiples datasets
-datasets = load_openml_datasets(dataset_ids=[1, 2, 3, 4, 5])
+```
+numpy>=1.21.0
+pandas>=1.3.0
+scikit-learn>=1.0.0
+scipy>=1.7.0
+torch>=1.10.0
+gpytorch>=1.6.0
+tqdm>=4.62.0
+matplotlib>=3.5.0
 ```
 
-### Extraer características meta
+## 💻 Uso
 
-```python
-from src.meta_features import extract_meta_features
+### 1. Entrenar el modelo FSBO
 
-meta_features = extract_meta_features(dataset)
+```bash
+# Entrenar para un algoritmo específico
+python scripts/train_fsbo.py --algorithm adaboost --epochs 2000
+
+# Entrenar para todos los algoritmos
+python scripts/train_fsbo.py --algorithm all
 ```
 
-### Entrenar un meta-learner
+### 2. Usar el optimizador (API observe/suggest)
 
 ```python
-from src.meta_learner import MetaLearner
+from fsbo_optimizer import FSBOOptimizer
 
-meta_learner = MetaLearner()
-meta_learner.train(training_datasets, training_results)
-predictions = meta_learner.predict(new_dataset_meta_features)
+# Cargar modelo pre-entrenado
+optimizer = FSBOOptimizer.from_pretrained('random_forest')
+
+# Warm start: configuraciones iniciales prometedoras
+initial_configs = optimizer.suggest_initial(n=5)
+for config in initial_configs:
+    score = train_and_evaluate(model, config)
+    optimizer.observe(config, score)
+
+# Loop de optimización
+for _ in range(25):
+    config = optimizer.suggest()           # Sugerir siguiente config
+    score = train_and_evaluate(model, config)
+    optimizer.observe(config, score)       # Registrar resultado
+
+# Obtener mejor configuración
+best_config, best_score = optimizer.get_best()
 ```
 
-## 🔬 Experimentos Planificados
+### 3. Ejecutar experimentos
 
-1. **Análisis exploratorio de datasets OpenML**
-   - Distribución de tipos de problemas (clasificación, regresión)
-   - Análisis de características meta (dimensionalidad, balance de clases, etc.)
+```bash
+# Experimento completo con K-Fold CV
+python scripts/experiments.py \
+    --algorithm all \
+    --k_folds 5 \
+    --n_trials 30 \
+    --n_seeds 3 \
+    --methods fsbo random gp-rs
 
-2. **Extracción de características meta**
-   - Características estadísticas (media, varianza, skewness, etc.)
-   - Características de información (entropía, correlación, etc.)
-   - Características de complejidad (medidas de separabilidad, etc.)
+# Generar visualizaciones
+python scripts/visualize.py \
+    --results experiments/results/ \
+    --output experiments/figures/
+```
 
-3. **Meta-learning para selección de algoritmos**
-   - Entrenar modelos que predigan el mejor algoritmo para un dataset
-   - Comparar diferentes enfoques (landmarking, meta-features, etc.)
+## 📊 Resultados
 
-4. **Optimización de hiperparámetros basada en meta-learning**
-   - Usar información de datasets similares para inicializar búsquedas
-   - Transfer learning de configuraciones exitosas
+FSBO supera consistentemente a los baselines en todos los algoritmos evaluados:
 
-5. **Few-shot learning**
-   - Implementar modelos como MAML (Model-Agnostic Meta-Learning)
-   - Evaluar en tareas de clasificación con pocos ejemplos
+| Algoritmo | FSBO (NR↓) | Random | GP-RS |
+|-----------|------------|--------|-------|
+| AdaBoost | **0.189** | 0.195 | 0.197 |
+| Random Forest | **0.230** | 0.253 | 0.259 |
+| LibSVM_SVC | **0.196** | 0.217 | 0.200 |
+| AutoSklearn | **0.332** | 0.341 | 0.334 |
 
-## 📚 Referencias
+*NR = Normalized Regret (menor es mejor)*
 
-- [metalearning github](https://automl.github.io/amltk/latest/reference/metalearning/)
-- [OpenML Documentation](https://docs.openml.org/)
-- [Meta-Learning Survey Papers](https://arxiv.org/abs/1810.03548)
-- [AutoML and Meta-Learning](https://www.automl.org/)
-- [PIPES] https://github.com/cynthiamaia/PIPES/
-- https://github.com/mfeurer?tab=repositories
+## 🔗 Integración con Meta-Learning
+
+Este módulo está diseñado para integrarse con el componente de meta-learning:
+
+```python
+from fsbo_optimizer import optimize_algorithms
+
+# Meta-learning sugiere algoritmos para el dataset
+suggested_algorithms = meta_learner.suggest(X, y)
+# -> ['random_forest', 'adaboost']
+
+# FSBO optimiza hiperparámetros de cada uno
+results = optimize_algorithms(
+    algorithms=suggested_algorithms,
+    evaluation_fn=lambda alg, hp: train_evaluate(X, y, alg, hp),
+    budget_per_algorithm=30
+)
+
+# Mejor combinación (algoritmo + hiperparámetros)
+best_alg = max(results, key=lambda a: results[a].best_score)
+print(f"Mejor: {best_alg} con {results[best_alg].best_config}")
+```
+
+## 📚 Documentación
+
+- **[technical_report.pdf](doc/technical_report.pdf)**: Documentación técnica completa (17 páginas)
+- **[experimental_report.pdf](doc/experimental_report.pdf)**: Análisis de resultados experimentales
+- **[EXPERIMENTS.md](doc/EXPERIMENTS.md)**: Guía del framework de experimentación
+
+## 🧪 Algoritmos Soportados
+
+- AdaBoost
+- Random Forest
+- LibSVM SVC
+- AutoSklearn
+
+## 📖 Referencias
+
+```bibtex
+@inproceedings{wistuba2021fsbo,
+  title={Few-Shot Bayesian Optimization with Deep Kernel Surrogates},
+  author={Wistuba, Martin and Grabocka, Josif},
+  booktitle={International Conference on Learning Representations},
+  year={2021}
+}
+```
 
 
-## 👥 Autores
 
-- Amalia Beatriz Valiente Hinojosa
-- Arianne Camila Palancar Ochando
-- Melani Forsythe Matos
-- Jabel Resendiz Aguirre
-- Jorge Alejandro Echevarría Brunet
-- Noel Pérez Calvo
+Proyecto académico - MetaLearning
+
+---
+
+**Fecha**: Enero 2026
 
