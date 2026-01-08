@@ -1,8 +1,8 @@
 
 
-# # Visualization
-# matplotlib>=3.4.0
-# seaborn>=0.11.0
+# Visualization
+matplotlib>=3.4.0
+seaborn>=0.11.0
 
 # Jupyter notebooks
 jupyter>=1.0.0
