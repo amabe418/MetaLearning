@@ -995,7 +995,279 @@ def generate_latex_table(results):
 \end{enumerate}
 
 % =============================================================================
-% SECCION 6: RESULTADOS OBTENIDOS
+% SECCION 6: FORMATO DE DATOS DE ENTRADA
+% =============================================================================
+\section{Formato de Datos de Entrada}
+
+Esta seccion describe en detalle el formato de los datos necesarios para entrenar y usar el sistema FSBO.
+
+\subsection{Estructura del Directorio de Datos}
+
+\begin{verbatim}
+data/
++-- configspace/                    # Definiciones de espacios de HP
+|   +-- adaboost_configspace.json
+|   +-- random_forest_configspace.json
+|   +-- libsvm_svc_configspace.json
+|   +-- autosklearn_configspace.json
+|
++-- representation_with_scores/     # Datos de entrenamiento
+    +-- adaboost_target_representation_with_scores.csv
+    +-- random_forest_target_representation_with_scores.csv
+    +-- libsvm_svc_target_representation_with_scores.csv
+    +-- autosklearn_target_representation_with_scores.csv
+\end{verbatim}
+
+\subsection{Archivos ConfigSpace: Definicion del Espacio de Busqueda}
+
+Los archivos \texttt{configspace/*.json} definen \textbf{que hiperparametros existen} y sus rangos validos para cada algoritmo.
+
+\subsubsection{Estructura del JSON}
+
+\begin{lstlisting}[language=Python]
+{
+  "name": "sklearn.ensemble.AdaBoostClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__learning_rate",
+      "type": "uniform_float",
+      "log": true,       // Escala logaritmica
+      "lower": 0.01,     // Valor minimo
+      "upper": 2.0,      // Valor maximo
+      "default": 0.1
+    },
+    {
+      "name": "classifier__algorithm",
+      "type": "categorical",
+      "choices": ["SAMME.R", "SAMME"]
+    }
+  ]
+}
+\end{lstlisting}
+
+\subsubsection{Tipos de Hiperparametros Soportados}
+
+\begin{table}[H]
+\centering
+\caption{Tipos de hiperparametros en ConfigSpace}
+\begin{tabular}{lll}
+\toprule
+\textbf{Tipo} & \textbf{Descripcion} & \textbf{Ejemplo} \\
+\midrule
+\texttt{uniform\_float} & Numero real continuo & learning\_rate $\in [0.01, 2.0]$ \\
+\texttt{uniform\_int} & Numero entero & n\_estimators $\in [50, 500]$ \\
+\texttt{categorical} & Valor discreto de un conjunto & kernel $\in$ \{rbf, poly, sigmoid\} \\
+\texttt{constant} & Valor fijo (no se optimiza) & max\_iter $= -1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Complejidad por Algoritmo}
+
+\begin{table}[H]
+\centering
+\caption{Comparacion de espacios de hiperparametros}
+\begin{tabular}{llll}
+\toprule
+\textbf{Algoritmo} & \textbf{Archivo} & \textbf{Num. HPs} & \textbf{Complejidad} \\
+\midrule
+AdaBoost & 54 lineas & 5 & Baja \\
+Random Forest & 55 lineas & 6 & Baja \\
+LibSVM SVC & 86 lineas & 9 & Media \\
+AutoSklearn & 3,201 lineas & $\sim$150 & Alta \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Archivos CSV: Datos de Entrenamiento}
+
+Los archivos \texttt{representation\_with\_scores/*.csv} contienen las \textbf{evaluaciones de hiperparametros} usadas para entrenar FSBO.
+
+\subsubsection{Estructura del CSV}
+
+Cada fila representa una evaluacion de una configuracion de hiperparametros en una tarea especifica:
+
+\begin{table}[H]
+\centering
+\caption{Estructura de columnas del CSV (ejemplo: AdaBoost)}
+\begin{tabular}{lll}
+\toprule
+\textbf{Columna} & \textbf{Tipo} & \textbf{Descripcion} \\
+\midrule
+\texttt{task\_id} & int & Identificador del dataset/tarea \\
+\texttt{classifier\_\_learning\_rate} & float & HP normalizado (z-score) \\
+\texttt{classifier\_\_n\_estimators} & float & HP normalizado (z-score) \\
+\texttt{classifier\_\_base\_estimator\_\_max\_depth} & float & HP normalizado (z-score) \\
+\texttt{classifier\_\_algorithm\_0.0} & float & One-hot: SAMME.R \\
+\texttt{classifier\_\_algorithm\_1.0} & float & One-hot: SAMME \\
+\texttt{imputation\_\_strategy\_0.0} & float & One-hot: mean \\
+\texttt{imputation\_\_strategy\_1.0} & float & One-hot: median \\
+\texttt{imputation\_\_strategy\_2.0} & float & One-hot: most\_frequent \\
+\texttt{accuracy} & float & Metrica de rendimiento $\in [0.5, 1.0]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Ejemplo de Fila}
+
+\begin{verbatim}
+task_id, lr_norm, n_est_norm, depth_norm, algo_0, algo_1, imp_0, imp_1, imp_2, accuracy
+   3   ,  1.23  ,   -0.86   ,   0.54    ,  0.0  ,  1.0  ,  0.0 ,  1.0 ,  0.0 ,   0.84
+\end{verbatim}
+
+\textbf{Interpretacion}:
+\begin{itemize}
+    \item \textbf{task\_id = 3}: Dataset numero 3 de OpenML
+    \item \textbf{lr\_norm = 1.23}: Learning rate alto (1.23 desviaciones estandar sobre la media)
+    \item \textbf{algo\_1 = 1.0}: Algoritmo = SAMME (segunda opcion del one-hot)
+    \item \textbf{imp\_1 = 1.0}: Estrategia de imputacion = median
+    \item \textbf{accuracy = 0.84}: Esta configuracion obtuvo 84\% de accuracy
+\end{itemize}
+
+\subsubsection{Por que los valores estan normalizados}
+
+Los hiperparametros se normalizan usando z-score:
+\begin{equation}
+    x_{norm} = \frac{x_{original} - \mu}{\sigma}
+\end{equation}
+
+\textbf{Razones}:
+\begin{enumerate}
+    \item La red neuronal (DeepKernelNetwork) funciona mejor con valores en rango similar
+    \item Evita que HPs con rangos grandes dominen sobre los de rangos pequenos
+    \item Facilita el aprendizaje del kernel RBF
+\end{enumerate}
+
+\subsubsection{Codificacion One-Hot para Variables Categoricas}
+
+Las variables categoricas se convierten a multiples columnas binarias:
+
+\begin{table}[H]
+\centering
+\caption{Ejemplo de codificacion one-hot}
+\begin{tabular}{l|ccc}
+\toprule
+\textbf{Valor Original} & \textbf{\_0.0} & \textbf{\_1.0} & \textbf{\_2.0} \\
+\midrule
+mean & 1.0 & 0.0 & 0.0 \\
+median & 0.0 & 1.0 & 0.0 \\
+most\_frequent & 0.0 & 0.0 & 1.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Relacion entre ConfigSpace y CSV}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=1cm,
+    box/.style={rectangle, draw, rounded corners, minimum width=4cm, minimum height=1.2cm, align=center, font=\small},
+    arrow/.style={->, thick}
+]
+    \node[box, fill=blue!20] (config) {ConfigSpace JSON\\(Definicion)};
+    \node[box, fill=orange!20, right=3cm of config] (csv) {CSV\\(Evaluaciones)};
+    \node[box, fill=green!20, below=1.5cm of config] (decode) {Decodificar\\(vector $\rightarrow$ config)};
+    \node[box, fill=purple!20, below=1.5cm of csv] (train) {Entrenar FSBO\\(meta-learning)};
+    
+    \draw[arrow] (config) -- node[above] {Define rangos} (csv);
+    \draw[arrow] (config) -- (decode);
+    \draw[arrow] (csv) -- (train);
+    \draw[arrow, dashed] (train) -- node[below] {Sugiere} (decode);
+\end{tikzpicture}
+\caption{Relacion entre ConfigSpace y datos CSV}
+\end{figure}
+
+\subsection{Formato Requerido para Nuevos Datasets}
+
+Para usar FSBO con un nuevo algoritmo, se necesitan dos archivos:
+
+\subsubsection{1. Archivo ConfigSpace (JSON)}
+
+\begin{lstlisting}[language=Python]
+{
+  "name": "mi_algoritmo",
+  "hyperparameters": [
+    {
+      "name": "hp1",
+      "type": "uniform_float",
+      "lower": 0.001,
+      "upper": 1.0,
+      "log": true
+    },
+    {
+      "name": "hp2", 
+      "type": "uniform_int",
+      "lower": 10,
+      "upper": 100
+    },
+    {
+      "name": "hp3",
+      "type": "categorical",
+      "choices": ["opcion_a", "opcion_b", "opcion_c"]
+    }
+  ]
+}
+\end{lstlisting}
+
+\subsubsection{2. Archivo CSV de Evaluaciones}
+
+\begin{table}[H]
+\centering
+\caption{Formato requerido del CSV}
+\begin{tabular}{ll}
+\toprule
+\textbf{Columna} & \textbf{Requisito} \\
+\midrule
+\texttt{task\_id} & \textbf{Obligatorio}. Identificador de tarea (entero) \\
+\texttt{hp1}, \texttt{hp2}, ... & Valores normalizados de hiperparametros \\
+\texttt{hp\_cat\_0.0}, \texttt{hp\_cat\_1.0} & One-hot para categoricos \\
+\texttt{accuracy} (o \texttt{score}) & \textbf{Obligatorio}. Metrica de rendimiento \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Requisitos Minimos}
+
+\begin{itemize}
+    \item \textbf{Minimo 5 tareas} (task\_ids diferentes)
+    \item \textbf{Minimo 5 evaluaciones por tarea}
+    \item \textbf{Score en rango [0, 1]} (preferiblemente)
+    \item \textbf{Sin valores NaN} en hiperparametros
+\end{itemize}
+
+\subsubsection{Ejemplo Minimo Funcional}
+
+\begin{verbatim}
+task_id,hp1_norm,hp2_norm,hp3_0.0,hp3_1.0,hp3_2.0,accuracy
+1,-0.5,0.3,1.0,0.0,0.0,0.75
+1,0.8,-0.2,0.0,1.0,0.0,0.82
+1,0.1,0.7,0.0,0.0,1.0,0.78
+... (minimo 5 filas por task_id)
+2,-0.3,0.5,1.0,0.0,0.0,0.80
+2,0.6,-0.1,0.0,1.0,0.0,0.85
+... (minimo 5 tareas diferentes)
+\end{verbatim}
+
+\subsection{Estadisticas de los Datos Actuales}
+
+\begin{table}[H]
+\centering
+\caption{Resumen de los datasets disponibles}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Algoritmo} & \textbf{Filas} & \textbf{Tareas} & \textbf{Eval/Tarea} & \textbf{Dimensiones} \\
+\midrule
+AdaBoost & 4,667 & 64 & $\sim$73 & 8 \\
+Random Forest & $\sim$7,000 & 64 & $\sim$109 & 9 \\
+LibSVM SVC & 4,525 & 64 & $\sim$71 & 12 \\
+AutoSklearn & $\sim$90,000 & 64 & $\sim$1,400 & $\sim$150 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =============================================================================
+% SECCION 7: RESULTADOS OBTENIDOS
 % =============================================================================
 \section{Resultados Obtenidos}
 
