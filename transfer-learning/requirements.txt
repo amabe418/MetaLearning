@@ -19,6 +19,9 @@ gpytorch>=1.6.0
 # Utilities
 tqdm>=4.62.0
 
+# Visualization (optional)
+matplotlib>=3.5.0
+
 # =============================================================================
 # Installation:
 #   pip install -r requirements.txt
