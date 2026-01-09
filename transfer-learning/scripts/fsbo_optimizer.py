@@ -119,61 +119,132 @@ class HyperparameterSpace:
     """Define el espacio de búsqueda de un algoritmo."""
     name: str
     parameters: Dict[str, Dict]  # {param_name: {type, range, ...}}
+    use_one_hot: bool = True  # Si usar one-hot encoding para categóricos
+    
+    def _get_encoded_dim(self) -> int:
+        """Calcula la dimensión del vector codificado (con one-hot si aplica)."""
+        dim = 0
+        for spec in self.parameters.values():
+            if spec['type'] == 'categorical' and self.use_one_hot:
+                dim += len(spec['choices'])
+            else:
+                dim += 1
+        return dim
     
     def sample_random(self, n: int = 1) -> np.ndarray:
         """Genera n configuraciones aleatorias normalizadas [0,1]."""
-        dim = len(self.parameters)
+        dim = self._get_encoded_dim()
         return np.random.rand(n, dim).astype(np.float32)
     
     def decode(self, x_normalized: np.ndarray) -> Dict[str, Any]:
         """Convierte vector normalizado a diccionario de hiperparámetros."""
         config = {}
-        for i, (name, spec) in enumerate(self.parameters.items()):
-            val = x_normalized[i]
-            
+        idx = 0  # Índice en el vector x_normalized
+        
+        for name, spec in self.parameters.items():
             if spec['type'] == 'float':
+                val = x_normalized[idx]
                 lo, hi = spec['range']
                 if spec.get('log', False):
-                    config[name] = np.exp(np.log(lo) + val * (np.log(hi) - np.log(lo)))
+                    config[name] = float(np.exp(np.log(lo) + val * (np.log(hi) - np.log(lo))))
                 else:
-                    config[name] = lo + val * (hi - lo)
+                    config[name] = float(lo + val * (hi - lo))
+                idx += 1
                     
             elif spec['type'] == 'int':
+                val = x_normalized[idx]
                 lo, hi = spec['range']
                 config[name] = int(np.round(lo + val * (hi - lo)))
+                idx += 1
                 
             elif spec['type'] == 'categorical':
                 choices = spec['choices']
-                idx = int(val * len(choices)) % len(choices)
-                config[name] = choices[idx]
+                
+                if self.use_one_hot:
+                    # Decodificar one-hot
+                    n_choices = len(choices)
+                    one_hot_values = x_normalized[idx:idx+n_choices]
+                    choice_idx = int(np.argmax(one_hot_values))
+                    idx += n_choices
+                else:
+                    # Decodificado simple
+                    val = x_normalized[idx]
+                    choice_idx = int(val * (len(choices) - 1)) if len(choices) > 1 else 0
+                    choice_idx = max(0, min(choice_idx, len(choices) - 1))
+                    idx += 1
+                
+                choice = choices[choice_idx]
+                
+                # Convertir strings de booleanos de vuelta a bool si es necesario
+                if choice in ['True', 'true']:
+                    config[name] = True
+                elif choice in ['False', 'false']:
+                    config[name] = False
+                else:
+                    config[name] = choice
                 
         return config
     
     def encode(self, config: Dict[str, Any]) -> np.ndarray:
         """Convierte diccionario de hiperparámetros a vector normalizado."""
-        x = np.zeros(len(self.parameters), dtype=np.float32)
+        x_list = []
         
-        for i, (name, spec) in enumerate(self.parameters.items()):
+        for name, spec in self.parameters.items():
             val = config.get(name)
             if val is None:
-                continue
-                
-            if spec['type'] == 'float':
-                lo, hi = spec['range']
-                if spec.get('log', False):
-                    x[i] = (np.log(val) - np.log(lo)) / (np.log(hi) - np.log(lo))
+                # Si falta un valor, usar valores por defecto
+                if spec['type'] == 'categorical' and self.use_one_hot:
+                    x_list.extend([0.0] * len(spec['choices']))
                 else:
-                    x[i] = (val - lo) / (hi - lo)
+                    x_list.append(0.5)
+                continue
+            
+            try:
+                if spec['type'] == 'float':
+                    lo, hi = spec['range']
+                    val = float(val)
+                    if spec.get('log', False):
+                        encoded = (np.log(val) - np.log(lo)) / (np.log(hi) - np.log(lo))
+                    else:
+                        encoded = (val - lo) / (hi - lo)
+                    x_list.append(encoded)
+                        
+                elif spec['type'] == 'int':
+                    lo, hi = spec['range']
+                    val = int(val) if not isinstance(val, (int, float)) else val
+                    encoded = (val - lo) / (hi - lo)
+                    x_list.append(encoded)
                     
-            elif spec['type'] == 'int':
-                lo, hi = spec['range']
-                x[i] = (val - lo) / (hi - lo)
-                
-            elif spec['type'] == 'categorical':
-                choices = spec['choices']
-                if val in choices:
-                    x[i] = choices.index(val) / len(choices)
+                elif spec['type'] == 'categorical':
+                    choices = spec['choices']
+                    val_str = str(val)
                     
+                    # Encontrar el índice del valor
+                    if val in choices:
+                        idx = choices.index(val)
+                    elif val_str in choices:
+                        idx = choices.index(val_str)
+                    else:
+                        logger.warning(f"Valor '{val}' no encontrado en choices para {name}, usando default")
+                        idx = 0
+                    
+                    if self.use_one_hot:
+                        # One-hot encoding
+                        one_hot = [0.0] * len(choices)
+                        one_hot[idx] = 1.0
+                        x_list.extend(one_hot)
+                    else:
+                        # Encoding simple
+                        x_list.append(idx / max(len(choices) - 1, 1))
+                        
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error codificando {name}={val} (tipo={spec['type']}): {e}")
+                if spec['type'] == 'categorical' and self.use_one_hot:
+                    x_list.extend([0.0] * len(spec['choices']))
+                else:
+                    x_list.append(0.5)
+        
+        x = np.array(x_list, dtype=np.float32)
         return np.clip(x, 0, 1)
 
 
@@ -293,11 +364,93 @@ class FSBOOptimizer:
         self.finetune_epochs = 20
         self._n_suggests = 0
         
+    @staticmethod
+    def _load_configspace_from_json(
+        algorithm: str,
+        configspace_dir: Path
+    ) -> HyperparameterSpace:
+        """
+        Carga el espacio de hiperparámetros desde un archivo JSON.
+        
+        Args:
+            algorithm: Nombre del algoritmo
+            configspace_dir: Directorio con los archivos JSON
+            
+        Returns:
+            HyperparameterSpace configurado
+        """
+        # Asegurar que configspace_dir es Path
+        if not isinstance(configspace_dir, Path):
+            configspace_dir = Path(configspace_dir)
+        
+        # Buscar el archivo JSON correspondiente
+        json_path = configspace_dir / f"{algorithm}_configspace.json"
+        
+        logger.info(f"Buscando configspace en: {json_path}")
+        
+        if not json_path.exists():
+            logger.warning(f"No se encontró configspace JSON para {algorithm} en {json_path}, usando espacio predefinido")
+            # Fallback al espacio predefinido si existe
+            if algorithm in HYPERPARAMETER_SPACES:
+                return HYPERPARAMETER_SPACES[algorithm]
+            else:
+                raise FileNotFoundError(f"No configspace disponible para {algorithm}")
+        
+        # Leer el JSON
+        with open(json_path, 'r') as f:
+            config_data = json.load(f)
+        
+        # Convertir hiperparámetros al formato HyperparameterSpace
+        parameters = {}
+        
+        for hp in config_data['hyperparameters']:
+            name = hp['name']
+            hp_type = hp['type']
+            
+            # Ignorar hiperparámetros constantes (no se optimizan)
+            if hp_type == 'constant':
+                continue
+            
+            # Convertir según el tipo
+            if hp_type == 'uniform_float':
+                parameters[name] = {
+                    'type': 'float',
+                    'range': [hp['lower'], hp['upper']],
+                    'log': hp.get('log', False)
+                }
+            
+            elif hp_type == 'uniform_int':
+                parameters[name] = {
+                    'type': 'int',
+                    'range': [hp['lower'], hp['upper']],
+                    'log': hp.get('log', False)
+                }
+            
+            elif hp_type == 'categorical':
+                # Convertir booleanos a strings si es necesario
+                choices = hp['choices']
+                choices = [str(c) if isinstance(c, bool) else c for c in choices]
+                parameters[name] = {
+                    'type': 'categorical',
+                    'choices': choices
+                }
+            
+            else:
+                logger.warning(f"Tipo de hiperparámetro desconocido: {hp_type} para {name}")
+        
+        logger.info(f"Cargado configspace para {algorithm}: {len(parameters)} hiperparámetros")
+        
+        return HyperparameterSpace(
+            name=algorithm,
+            parameters=parameters
+        )
+    
     @classmethod
     def from_pretrained(
         cls,
         algorithm: str,
         checkpoint_dir: Optional[str] = None,
+        configspace_dir: Optional[str] = None,
         device: str = 'cpu'
     ) -> 'FSBOOptimizer':
         """
@@ -306,6 +459,7 @@ class FSBOOptimizer:
         Args:
             algorithm: Nombre del algoritmo ('adaboost', 'random_forest', etc.)
             checkpoint_dir: Directorio de checkpoints (opcional)
+            configspace_dir: Directorio de configspaces JSON (opcional)
             device: Dispositivo ('cpu' o 'cuda')
             
         Returns:
@@ -315,6 +469,11 @@ class FSBOOptimizer:
             checkpoint_dir = Path(__file__).parent.parent / 'experiments' / 'checkpoints'
         else:
             checkpoint_dir = Path(checkpoint_dir)
+        
+        if configspace_dir is None:
+            configspace_dir = Path(__file__).parent.parent / 'data' / 'configspace'
+        else:
+            configspace_dir = Path(configspace_dir)
         
         # Buscar checkpoint
         checkpoints = list(checkpoint_dir.glob(f'fsbo_{algorithm}_*.pt'))
@@ -350,15 +509,30 @@ class FSBOOptimizer:
         model.load_state_dict(checkpoint['model_state'])
         likelihood.load_state_dict(checkpoint['likelihood_state'])
         
-        # Espacio de hiperparámetros - debe coincidir con input_dim del modelo
-        # Crear espacio genérico que coincida con las dimensiones del modelo entrenado
-        hp_space = HyperparameterSpace(
-            name=algorithm,
-            parameters={f'hp_{i}': {'type': 'float', 'range': [0, 1]} 
-                       for i in range(input_dim)}
-        )
+        # Cargar espacio de hiperparámetros real desde JSON
+        hp_space = cls._load_configspace_from_json(algorithm, configspace_dir)
+        
+        # VALIDACIÓN: verificar compatibilidad de dimensiones
+        n_params = len(hp_space.parameters)
+        encoded_dim = hp_space._get_encoded_dim()
+        
+        if encoded_dim != input_dim:
+            logger.warning(
+                f"⚠️ Mismatch de dimensiones para {algorithm}:\n"
+                f"   - Modelo entrenado: {input_dim} dimensiones\n"
+                f"   - ConfigSpace: {n_params} hiperparámetros → {encoded_dim} dimensiones (con one-hot)\n"
+                f"   El modelo puede no funcionar correctamente."
+            )
+            # Intentar ajustar el one_hot encoding
+            if input_dim < encoded_dim:
+                logger.info("   Deshabilitando one-hot encoding...")
+                hp_space.use_one_hot = False
+                encoded_dim = hp_space._get_encoded_dim()
+                if encoded_dim != input_dim:
+                    logger.error(f"   Aún hay mismatch: {encoded_dim} != {input_dim}")
         
         logger.info(f"Loaded FSBO optimizer for {algorithm} from {checkpoint_path.name}")
+        logger.info(f"ConfigSpace: {n_params} hiperparámetros → {encoded_dim} dimensiones")
         
         return cls(
             algorithm=algorithm,
