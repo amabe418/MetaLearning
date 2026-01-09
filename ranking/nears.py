@@ -23,12 +23,12 @@ from sklearn.metrics import pairwise_distances
 # Agregar ruta del proyecto
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from experiment.utils import (
-    load_basic_features, 
-    load_target_features, 
+from experiment import (
+    load_basic_representations, 
+    load_target_representations, 
+    load_model_representations
 )
 
-from experiment.reprs import get_model_representations
 
 def get_neighbors_wrt_metabu_mf(test_task_id, pipeline, data_path, k=10, verbose=True):
     """
@@ -85,7 +85,7 @@ def get_neighbors_wrt_metabu_mf(test_task_id, pipeline, data_path, k=10, verbose
 
 
     # Cargar target representations
-    target_reprs = load_target_features(pipeline=cfg_pipeline, path=data_path)
+    target_reprs = load_target_representations(pipeline=cfg_pipeline, path=data_path)
     list_ids = sorted(list(target_reprs["task_id"].unique()))
     
     if verbose:
@@ -96,7 +96,7 @@ def get_neighbors_wrt_metabu_mf(test_task_id, pipeline, data_path, k=10, verbose
         raise ValueError(f"Task {test_task_id} not found in data")
     
     # Cargar metafeatures básicas
-    basic_reprs = load_basic_features(metafeature=cfg.metafeature, path=data_path)
+    basic_reprs = load_basic_representations(metafeature=cfg.metafeature, path=data_path)
     basic_reprs = basic_reprs[basic_reprs.task_id.isin(list_ids)]
     
     if verbose:
@@ -112,7 +112,7 @@ def get_neighbors_wrt_metabu_mf(test_task_id, pipeline, data_path, k=10, verbose
         print(f"  Test tasks: 1")
     
     # Entrenar MetaFeatX (como en Task1)
-    basic_reprs_metabu = get_model_representations(
+    basic_reprs_metabu = load_model_representations(
         cfg=cfg,
         basic_reprs=basic_reprs,
         target_reprs=target_reprs,
@@ -196,7 +196,7 @@ def extract_neighbors_for_all_tasks(pipeline, data_path, k=10, output_dir='./out
             self.name = name
     
     pipeline_cfg = PipelineConfig(pipeline)
-    target_reprs = load_target_features(pipeline=pipeline_cfg, path=data_path)
+    target_reprs = load_target_representations(pipeline=pipeline_cfg, path=data_path)
     list_ids = sorted(list(target_reprs["task_id"].unique()))
     
     if verbose:

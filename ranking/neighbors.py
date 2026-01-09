@@ -17,8 +17,11 @@ from pathlib import Path
 # Agregar raíz del proyecto para imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from model.neighbor.score import calculate_general_score
-from model.neighbor.nears import get_neighbors_wrt_metabu_mf, extract_neighbors_for_all_tasks
+from .score import calculate_general_score
+from .nears import (
+    get_neighbors_wrt_metabu_mf, 
+    extract_neighbors_for_all_tasks
+)
 
 def main():
     parser = argparse.ArgumentParser(description="Extractor de vecinos MetaFeatX CLI-like")
