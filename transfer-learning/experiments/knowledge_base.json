@@ -52,5 +52,150 @@
     },
     "best_score": 0.8053670114699624,
     "timestamp": "2026-01-08T00:53:45.013966"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "adaboost",
+    "best_config": {
+      "classifier__algorithm": "SAMME.R",
+      "classifier__base_estimator__max_depth": 4,
+      "classifier__learning_rate": 0.4273709230866324,
+      "classifier__n_estimators": 378,
+      "imputation__strategy": "most_frequent"
+    },
+    "best_score": 0.7974479326290606,
+    "timestamp": "2026-01-09T01:39:20.263541"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "random_forest",
+    "best_config": {
+      "hp_0": "0.2592275",
+      "hp_1": "0.39793664",
+      "hp_2": "0.02717481",
+      "hp_3": "0.29884762",
+      "hp_4": "0.048632357",
+      "hp_5": "0.04984891",
+      "hp_6": "0.44782165",
+      "hp_7": "0.37781522",
+      "hp_8": "0.004774451",
+      "hp_9": "0.2699999"
+    },
+    "best_score": 0.8012352951442644,
+    "timestamp": "2026-01-09T01:39:20.349923"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "adaboost",
+    "best_config": {
+      "classifier__algorithm": "SAMME.R",
+      "classifier__base_estimator__max_depth": 4,
+      "classifier__learning_rate": 0.4273709230866324,
+      "classifier__n_estimators": 378,
+      "imputation__strategy": "most_frequent"
+    },
+    "best_score": 0.806975360252324,
+    "timestamp": "2026-01-09T01:39:42.855394"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "random_forest",
+    "best_config": {
+      "classifier__bootstrap": false,
+      "classifier__criterion": "gini",
+      "classifier__max_features": 0.9738546013832092,
+      "classifier__min_samples_leaf": 1,
+      "classifier__min_samples_split": 12,
+      "imputation__strategy": "most_frequent"
+    },
+    "best_score": 0.8209181104160066,
+    "timestamp": "2026-01-09T01:39:42.986873"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "adaboost",
+    "best_config": {
+      "classifier__algorithm": "SAMME.R",
+      "classifier__base_estimator__max_depth": 3.785056789356944,
+      "classifier__learning_rate": 0.42395615281394144,
+      "classifier__n_estimators": 491.9843907357031,
+      "imputation__strategy": "most_frequent"
+    },
+    "best_score": 0.7787935935941442,
+    "timestamp": "2026-01-09T01:57:45.695719"
+  },
+  {
+    "dataset_id": "test_synthetic",
+    "meta_vector": [
+      5.993961427306569,
+      3.044522437723423,
+      1.3862943611198906,
+      3.044522437723423,
+      4.9003242732785735,
+      0.6648875000000001,
+      -0.08161056555982409,
+      2.244282802255838
+    ],
+    "algorithm": "random_forest",
+    "best_config": {
+      "classifier__bootstrap": false,
+      "classifier__criterion": "gini",
+      "classifier__max_features": 0.9738546013832092,
+      "classifier__min_samples_leaf": 1,
+      "classifier__min_samples_split": 12,
+      "imputation__strategy": "most_frequent"
+    },
+    "best_score": 0.8259559534181916,
+    "timestamp": "2026-01-09T01:57:45.833681"
   }
 ]
