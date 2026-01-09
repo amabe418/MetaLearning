@@ -1,0 +1,7 @@
+task_id,architecture,learning_rate,optimizer,batch_size,weight_decay,momentum,dropout_rate,alpha,label_smoothing,grad_clip,test_accuracy,train_accuracy,test_loss,training_time_sec,epochs
+MNIST,ResNet18,0.01,Adam,64,0.0001,,,1.0,,,0.935,0.935,0.20821797195822,285.6228985786438,3
+MNIST,ResNet18,0.001,Adam,64,0.0001,,0.1,1.0,0.1,1.0,0.922,0.901,0.35847547464072704,316.8650941848755,3
+MNIST,EfficientNetB0,0.01,Adam,64,0.0001,,0.2,1.0,,,0.952,0.9056,0.166042965836823,428.9620623588562,3
+MNIST,EfficientNetB0,0.001,Adam,64,0.0001,,0.2,1.0,0.1,1.0,0.917,0.8764,0.33715653233230114,415.058144569397,3
+MNIST,MobileNetV2,0.01,Adam,64,0.0001,,,1.0,,,0.933,0.8908,0.2040937994606793,361.27990651130676,3
+MNIST,MobileNetV2,0.001,Adam,64,0.0001,,0.1,1.0,0.1,1.0,0.926,0.9038,0.3079767981544137,349.2098157405853,3

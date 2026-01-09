@@ -14,7 +14,7 @@ BASE_DIR = Path(__file__).parent / "data"
 BASE_DIR.mkdir(exist_ok=True)
 
 print("\n" + "🎯" * 35)
-print("  DESCARGADOR AUTOMÁTICO DE 30 DATASETS")
+print("  DESCARGADOR AUTOMÁTICO DE 30 DATASETS (TORCHVISION)")
 print("🎯" * 35)
 print(f"\n📁 Los datasets se guardarán en: {BASE_DIR.absolute()}\n")
 
@@ -28,28 +28,48 @@ def print_section(title):
 
 def download_torchvision_datasets():
     """Descarga todos los datasets de Torchvision"""
-    print_section("DESCARGANDO DATASETS DE TORCHVISION (13 datasets)")
+    print_section("DESCARGANDO DATASETS DE TORCHVISION (30 datasets)")
     
     try:
         from torchvision import datasets, transforms
         
         transform = transforms.ToTensor()
         
-        # Lista completa de datasets de Torchvision
+        # Lista completa de datasets (14 grises + 16 RGB = 30 total)
         datasets_list = [
+            # DATASETS EN ESCALA DE GRISES (14)
             ("MNIST", datasets.MNIST, {}, True),
-            ("Fashion-MNIST", datasets.FashionMNIST, {}, True),
+            ("FashionMNIST", datasets.FashionMNIST, {}, True),
+            ("KMNIST", datasets.KMNIST, {}, True),
+            ("EMNIST", datasets.EMNIST, {"split": "letters"}, False),
+            ("EMNIST_Balanced", datasets.EMNIST, {"split": "balanced"}, False),
+            ("EMNIST_Digits", datasets.EMNIST, {"split": "digits"}, False),
+            ("EMNIST_MNIST", datasets.EMNIST, {"split": "mnist"}, False),
+            ("EMNIST_ByClass", datasets.EMNIST, {"split": "byclass"}, False),
+            ("EMNIST_ByMerge", datasets.EMNIST, {"split": "bymerge"}, False),
             ("USPS", datasets.USPS, {}, True),
-            ("EMNIST-Letters", datasets.EMNIST, {"split": "letters"}, False),
-            ("CIFAR-10", datasets.CIFAR10, {}, True),
-            ("CIFAR-100", datasets.CIFAR100, {}, True),
+            ("QMNIST", datasets.QMNIST, {}, True),
+            ("Omniglot", datasets.Omniglot, {"background": True}, False),
+            ("RenderedSST2", datasets.RenderedSST2, {"split": "train"}, False),
+            ("FER2013", datasets.FER2013, {"split": "train"}, False),
+            
+            # DATASETS RGB (16)
+            ("CIFAR10", datasets.CIFAR10, {}, True),
+            ("CIFAR100", datasets.CIFAR100, {}, True),
             ("SVHN", datasets.SVHN, {"split": "train"}, False),
+            ("STL10", datasets.STL10, {"split": "train"}, False),
+            ("STL10_Unlabeled", datasets.STL10, {"split": "unlabeled"}, False),
             ("Flowers102", datasets.Flowers102, {"split": "train"}, False),
             ("OxfordIIITPet", datasets.OxfordIIITPet, {"split": "trainval"}, False),
             ("DTD", datasets.DTD, {"split": "train"}, False),
             ("GTSRB", datasets.GTSRB, {"split": "train"}, False),
             ("EuroSAT", datasets.EuroSAT, {}, False),
-            ("Omniglot", datasets.Omniglot, {"background": True}, False),
+            ("PCAM", datasets.PCAM, {"split": "train"}, False),
+            ("StanfordCars", datasets.StanfordCars, {"split": "train"}, False),
+            ("FGVCAircraft", datasets.FGVCAircraft, {"split": "train"}, False),
+            ("Country211", datasets.Country211, {"split": "train"}, False),
+            ("Caltech101", datasets.Caltech101, {}, False),
+            ("LFWPeople", datasets.LFWPeople, {"split": "train"}, False),
         ]
         
         total = len(datasets_list)
@@ -101,6 +121,13 @@ def download_torchvision_datasets():
 
 
 def download_huggingface_datasets():
+    """Omitir Hugging Face - solo usar Torchvision"""
+    print_section("DATASETS DE HUGGING FACE")
+    print("⏭️  Omitiendo Hugging Face - usando solo Torchvision")
+    return 0
+
+
+def download_huggingface_datasets_OLD():
     """Descarga datasets de Hugging Face"""
     print_section("DESCARGANDO DATASETS DE HUGGING FACE (2 datasets)")
     
@@ -152,6 +179,13 @@ def download_tensorflow_datasets():
 
 
 def download_kaggle_datasets():
+    """Omitir Kaggle - solo usar Torchvision"""
+    print_section("DATASETS DE KAGGLE")
+    print("⏭️  Omitiendo Kaggle - usando solo Torchvision")
+    return 0
+
+
+def download_kaggle_datasets_OLD():
     """Descarga datasets de Kaggle"""
     print_section("DESCARGANDO DATASETS DE KAGGLE (15 datasets)")
     # Verificar configuración de Kaggle
@@ -282,9 +316,7 @@ def show_summary(stats):
     total_downloaded = sum(stats.values())
     
     print("\n📊 Resumen de descargas:")
-    print(f"   ✅ Torchvision:     {stats.get('torchvision', 0)}/13 datasets")
-    print(f"   ✅ Hugging Face:    {stats.get('huggingface', 0)}/2 datasets")
-    print(f"   ✅ Kaggle:          {stats.get('kaggle', 0)}/15 datasets")
+    print(f"   ✅ Torchvision:     {stats.get('torchvision', 0)}/30 datasets")
     print(f"\n   📦 TOTAL:           {total_downloaded}/30 datasets")
     
     # Calcular espacio usado
@@ -322,9 +354,9 @@ def main():
             print("❌ Cancelado. Activa el entorno virtual primero.")
             return
     
-    print("\nEste script descargará automáticamente ~20-25 datasets")
-    print("Esto puede tomar entre 30 minutos y 2 horas dependiendo de tu conexión")
-    print("Se necesitan aproximadamente 10-15 GB de espacio en disco\n")
+    print("\nEste script descargará automáticamente 30 datasets de Torchvision")
+    print("Esto puede tomar entre 1 y 3 horas dependiendo de tu conexión")
+    print("Se necesitan aproximadamente 15-20 GB de espacio en disco\n")
     
     response = input("¿Deseas continuar? (S/n): ")
     if response.lower() == 'n':
