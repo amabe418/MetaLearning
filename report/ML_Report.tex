@@ -7,6 +7,8 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{amssymb}
 \usepackage{multirow}
 \usepackage{float}  
@@ -539,11 +541,93 @@ El material suplementario incluye detalles adicionales sobre:
 
 \section*{Pseudo-código del algoritmo}
 \label{appendix:B}
-\lipsum[2]
+El procedimiento de aprendizaje de MetaFeatX se describe en el Alg. 1, detallando la descripción 
+presentada anteriormente en la secci\'on 2.4. La densidad en el espacio de hiperparámetros, 
+utilizada para muestrear configuraciones de hiperparámetros para un dataset dado dependiendo de las
+meta-características consideradas , se presenta en el Alg.2.
 
+\begin{algorithm}
+\caption{Aprendizaje de meta-características de MetaFeatX}
+\textbf{Datos:} Conjunto de $n$ datasets de entrenamiento, cada uno con representación básica $x_i$ y representación objetivo $z_i$, $i=1 \dots n$ \\
+\textbf{Resultado:} Capa de embedding $\psi^*$
+\begin{algorithmic}[1]
+    % Paso 1: Construir la representación proyectada de los objetivos
+    \State Construir la representación proyectada de los objetivos:
+    \Statex \hspace{\algorithmicindent} $C_{i,j} \gets d^2_W(z_i, z_j), \quad i,j = 1\dots n \quad \text{(Distancia de Wasserstein par a par)}$
+    \Comment{Se calcula la matriz de distancias entre las representaciones de hiperparámetros de cada dataset.}
+    
+    % Paso 2: Estimar la dimensión intrínseca
+    \State Estimar la dimensión intrínseca $d$ a partir de la matriz $C$.
+    \Comment{Esto ayuda a reducir la dimensionalidad manteniendo la estructura de los datos.}
+
+    % Paso 3: Aplicar MDS
+    \State $u \gets \text{MDS}(C, d)$ 
+    \Comment{Multidimensional Scaling: proyecta los datos a un espacio de dimensión $d$ preservando las distancias.}
+
+    % Paso 4: Inicializar la capa de embedding
+    \State $\psi \gets \text{Linear}(135, d)$ 
+    \Comment{Capa lineal que mapea las 135 meta-características básicas a un espacio de dimensión $d$.}
+
+    % Paso 5: Calcular el promedio de las representaciones básicas
+    \State $x \gets \frac{1}{n}\sum_{i=1}^{n} x_i$ 
+    \Comment{Se obtiene un vector promedio de las representaciones básicas para normalizar el aprendizaje.}
+
+    % Paso 6: Definir la función de pérdida FGW
+    \State $L \gets \text{FGW}$
+    \Comment{FGW (Fused Gromov-Wasserstein) mide la discrepancia entre representaciones básicas y proyectadas.}
+
+    % Paso 7: Optimizar la capa de embedding con ADAM
+    \State $\psi^* \gets \text{ADAM}(L, \psi \# \mathbf{x}, \mathbf{u})$
+    \Comment{Se ajusta $\psi$ usando el optimizador ADAM para minimizar la función de pérdida $L$.}
+\end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}
+\caption{Ajuste de Densidad (Fit\_density)}
+\textbf{Datos:} Conjunto de $n$ datasets de entrenamiento, con vectores de meta-características $x_i$ y top-20 hiperparámetros $\Theta_i$, $i=1 \dots n$. Dataset de prueba $x$. \\
+\textbf{Resultado:} Distribución de configuraciones prometedoras $z$.
+
+\begin{algorithmic}
+
+\State $\|x - x_{(1)}\| < \|x - x_{(2)}\| < \dots < \|x - x_{(n)}\|$ 
+\Comment{Paso 1: Ordenar datasets por cercanía en el espacio de meta-características}
+
+
+\State $z = \frac{1}{Z} \sum_{\ell=1}^{10} \exp(-\ell)\sum_{\theta \in \Theta_\ell}  \, \theta$ 
+\Comment{Paso 2: Calcular distribución ponderada de éxito; $Z$ normaliza la suma}
+
+\end{algorithmic}
+\end{algorithm}
+
+\newpage
 \section*{Configuración experimental y procedimiento de validación}
 \label{appendix:C}
-\lipsum[3] 
+
+El benchmark de OpenML incluye 72 datasets, de los cuales 64 tienen representación de objetivo. Los 8 restantes son demasiado grandes para ejecutar los experimentos.  
+
+\subsection*{Leave-One-Out y uso de splits}
+Para evaluar las meta-características, se emplea un esquema \textit{Leave-One-Out} (LOO) sobre los 64 datasets con representación de objetivo:  
+\begin{itemize}
+    \item En cada fold, se toma un dataset como prueba y los 63 restantes se usan para entrenar las meta-características.
+    \item El dataset de prueba nunca participa en el entrenamiento de las meta-características, garantizando una evaluación justa.
+    \item Dentro del fold, los conjuntos de entrenamiento se dividen internamente en train/validación según los splits proporcionados por OpenML (usando 5-CV para estimar la validación).
+    \item Para las tareas 2 y 3, además del fold de prueba, los 8 datasets sin representación de objetivo se incluyen como conjuntos de prueba adicionales.
+\end{itemize}
+
+\subsection*{Indicadores de desempeño}
+\begin{itemize}
+    \item \textbf{Tarea 1:} El desempeño se mide con NDCG@k promedio sobre los 64 folds.  
+    \item \textbf{Tareas 2 y 3:} Para cada dataset de prueba, se muestrean configuraciones de hiperparámetros a partir de los vecinos más cercanos según las meta-características. El desempeño se calcula en el conjunto de validación y el mejor modelo se evalúa sobre el dataset de prueba.
+\end{itemize}
+
+\subsection*{Notas sobre el uso de LOO}
+\begin{itemize}
+    \item Garantiza que cada dataset se evalúe sin haber participado en el entrenamiento de las meta-características.  
+    \item Permite usar el benchmark de forma eficiente, aprovechando todos los datasets disponibles para entrenar mientras se valida de manera independiente.  
+    \item Mantiene consistencia en la comparación de métodos (MetaFeatX, AutoSkLearn, Landmark, SCOT).
+\end{itemize}
+
 
 \newpage
 \section*{Espacios de Configuración de Hiperparámetros}
