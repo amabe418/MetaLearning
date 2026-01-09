@@ -367,83 +367,138 @@ Este procedimiento asegura que las MetaFeatX reflejen la topología del espacio 
 
 %-------------------------------------------------
 \section{Experimentación}
+\label{sec:experimentation}
 
-La experimentaci\'on en este trabajo se organiza en torno a tres objetivos principales: Validar si las meta-caracter\'isticas aprendidas por METABU capturan adecuadamente la topolog\'ia ``verdadera'' inducida por las configuraciones de hiperpar\'ametros; evaluar su utilidad pr\'actica para AutoML, tanto sin como con modelo de rendimiento; y analizar la sensibilidad del m\'etodo y extraer informaci\'on sobre la estructura del espacio de conjuntos de datos y los ``nichos'' de distintos algoritmos.  La experimentaci\'on se fundamenta en la idea de que unas buenas meta-caracter\'isticas deben inducir una m\'etrica sobre el espacio de conjuntos de datos tal que la cercan\'ia entre conjuntos de datos signifique tambi\'en similitud en los conjuntos de configuraciones de hiperpar\'ametros que proporcionan buen rendimiento.
+Esta sección presenta la evaluación experimental de los enfoques estudiados en este trabajo, organizada de manera progresiva y coherente con los objetivos del proyecto.  
+Dado que los fundamentos teóricos y algorítmicos de los modelos han sido descritos en secciones anteriores, el énfasis aquí se pone exclusivamente en el análisis empírico de su comportamiento y en la validación de su utilidad práctica para AutoML.
 
-Esta noci\'on se formaliza mediante representaciones objetivo de cada conjunto de datos como distribuciones discretas sobre configuraciones de hiperpar\'ametros de alto rendimiento, y distancias de Wasserstein y Gromov-Wasserstein entre dichas distribuciones.  Desde este punto de vista, el prop\'osito de la experimentaci\'on es triple: (1) comprobar si la distancia eucl\'idea en el espacio de meta-caracter\'isticas METABU aproxima bien la distancia de Wasserstein entre representaciones objetivo; (2) verificar si esta m\'etrica permite dise\~nar estrategias de muestreo inicial de configuraciones m\'as eficaces que los meta-features manuales cl\'asicos (AutoSklearn, Landmark, SCOT) o el muestreo uniforme; y (3) estudiar, a partir de las meta-caracter\'isticas aprendidas, la dimensi\'on intr\'inseca del espacio de conjuntos de datos y la importancia relativa de distintas meta-caracter\'isticas humanas para varios algoritmos.
+En primer lugar, se reproducen y analizan los experimentos asociados al modelo \textbf{MetaFeatX}, siguiendo de cerca la metodología y los criterios de evaluación propuestos en el trabajo original que inspira este proyecto. El objetivo de esta etapa es verificar que las meta-features aprendidas capturan adecuadamente la estructura del espacio de datasets y que inducen una noción de similitud alineada con el rendimiento de los algoritmos y sus configuraciones de hiperparámetros.
 
-\subsection{Configuraci\'on experimental y tareas}
+A continuación, se presentan los \textbf{experimentos propios del equipo}, diseñados para estudiar el comportamiento de MetaFeatX en escenarios adicionales y para analizar empíricamente propiedades que no se exploran en profundidad en el trabajo original. Estos experimentos permiten evaluar la robustez del método, su sensibilidad a distintos parámetros y su impacto en tareas prácticas de muestreo e inicialización en AutoML.
+
+Finalmente, se evalúa el modelo de \textbf{transfer learning para la predicción de hiperparámetros}, que utiliza las representaciones aprendidas por MetaFeatX como mecanismo de transferencia de conocimiento entre datasets. En esta etapa se analiza cómo la información estructural capturada por las meta-features puede ser explotada para inicializar de manera eficiente la búsqueda de configuraciones prometedoras, reduciendo el costo computacional asociado a la fase de \emph{cold-start} en AutoML.
+
+Esta organización permite separar claramente la validación del enfoque inspirado en la literatura, la contribución experimental propia del equipo y la evaluación del modelo de transferencia desarrollado, ofreciendo una visión completa y estructurada de los resultados obtenidos.
+
+\subsection{Configuraci\'on experimental}
 
 El banco de pruebas es la suite OpenML CC-18 de clasificaci\'on tabular, con 72 conjuntos de datos, de los cuales 64 disponen de informaci\'on suficiente para construir la representaci\'on objetivo a partir de configuraciones evaluadas.  Para evitar sobreajuste dada la escasez de conjuntos de datos, los autores ampl\'ian la colecci\'on mediante \emph{bootstrap}: para cada conjunto de datos original se generan 1000 versiones remuestreadas con reemplazo, calculando de nuevo las meta-caracter\'isticas b\'asicas pero heredando la misma representaci\'on objetivo, lo que densifica el espacio de meta-features sin distorsionar la estructura de rendimiento.
 
-Sobre esta base, se definen tres tareas experimentales, todas validadas con un esquema \emph{leave-one-out} sobre los 64 conjuntos de datos con representaci\'on objetivo.  La primera tarea eval\'ua la capacidad de capturar la topolog\'ia objetivo; la segunda estudia el comportamiento de AutoML sin modelo de rendimiento expl\'icito, en un escenario de inicializaci\'on basada en vecindario; y la tercera analiza el uso de las meta-caracter\'isticas como mecanismo de inicializaci\'on para sistemas AutoML con modelo de rendimiento, concretamente AutoSklearn y Probabilistic Matrix Factorization (PMF).
+Dado que este número de conjuntos de datos es relativamente reducido para el aprendizaje de un mapeo entre meta-features básicas y representaciones objetivo, existe un riesgo significativo de \textbf{sobreajuste} y de una mala generalización del modelo aprendido. Para mitigar este problema, se amplía la colección de datasets mediante un procedimiento de \emph{bootstrap}: para cada conjunto de datos original se generan 1000 versiones remuestreadas con reemplazo, recalculando las meta-características básicas pero heredando la misma representación objetivo.
+
+Este procedimiento permite \textbf{densificar el espacio de meta-features} y estabilizar el aprendizaje del mapeo inducido por el Transporte Óptimo, sin introducir información artificial sobre el rendimiento de las configuraciones. De esta forma, se preserva la estructura topológica del espacio objetivo mientras se reduce la varianza del modelo y se mejora su capacidad de generalización a nuevos conjuntos de datos.
+
+\paragraph{Hiperparámetros del modelo} Para estos experimentos, el modelo fue configurado con los siguientes valores:  
+\begin{itemize}
+    \item $\alpha = 0.5$
+    \item $\lambda_{\text{reg}} = 1\times 10^{-3}$
+    \item $\text{learning\_rate} = 1\times 10^{-2}$
+    \item $\text{seed} = 42$
+\end{itemize}
+
+\subsection{Tareas experimentales}
+
+La experimentaci\'on en este trabajo se organiza en torno a tres objetivos principales: Validar si las meta-caracter\'isticas aprendidas por MetaFeatX capturan adecuadamente la topolog\'ia ``verdadera'' inducida por las configuraciones de hiperpar\'ametros; evaluar su utilidad pr\'actica para AutoML, tanto sin como con modelo de rendimiento; y analizar la sensibilidad del m\'etodo y extraer informaci\'on sobre la estructura del espacio de conjuntos de datos y los ``nichos'' de distintos algoritmos.  La experimentaci\'on se fundamenta en la idea de que unas buenas meta-caracter\'isticas deben inducir una m\'etrica sobre el espacio de conjuntos de datos tal que la cercan\'ia entre conjuntos de datos signifique tambi\'en similitud en los conjuntos de configuraciones de hiperpar\'ametros que proporcionan buen rendimiento.
+
+Esta noci\'on se formaliza mediante representaciones objetivo de cada conjunto de datos como distribuciones discretas sobre configuraciones de hiperpar\'ametros de alto rendimiento, y distancias de Wasserstein y Gromov-Wasserstein entre dichas distribuciones.  Desde este punto de vista, el prop\'osito de la experimentaci\'on es triple: (1) comprobar si la distancia eucl\'idea en el espacio de meta-caracter\'isticas MetaFeatX aproxima bien la distancia de Wasserstein entre representaciones objetivo; (2) verificar si esta m\'etrica permite dise\~nar estrategias de muestreo inicial de configuraciones m\'as eficaces que los meta-features manuales cl\'asicos (AutoSklearn, Landmark, SCOT) o el muestreo uniforme; y (3) estudiar, a partir de las meta-caracter\'isticas aprendidas, la dimensi\'on intr\'inseca del espacio de conjuntos de datos y la importancia relativa de distintas meta-caracter\'isticas humanas para varios algoritmos.
+
+\paragraph{Configuraci\'on de las tareas: }
+
+Sobre las base de la configuraciones experimentales anteriormente descrita, se definen tres tareas experimentales, todas validadas con un esquema \emph{leave-one-out} sobre los 64 conjuntos de datos con representaci\'on objetivo.  La primera tarea eval\'ua la capacidad de capturar la topolog\'ia objetivo; la segunda estudia el comportamiento de AutoML sin modelo de rendimiento expl\'icito, en un escenario de inicializaci\'on basada en vecindario; y la tercera analiza el uso de las meta-caracter\'isticas como mecanismo de inicializaci\'on para sistemas AutoML con modelo de rendimiento, concretamente AutoSklearn y Probabilistic Matrix Factorization (PMF).
 
 \subsubsection{Tarea 1: Captura de la topolog\'ia objetivo}
 
-En la primera tarea, el objetivo es cuantificar hasta qu\'e punto el vecindario de un conjunto de datos en el espacio de meta-caracter\'isticas METABU coincide con su vecindario real en el espacio de distribuciones de configuraciones de alto rendimiento.  Para cada conjunto de datos de prueba se calcula, por un lado, la lista ordenada de vecinos m\'as cercanos seg\'un la distancia de Wasserstein entre sus representaciones objetivo, y, por otro, la lista de vecinos seg\'un la distancia eucl\'idea en el espacio de meta-caracter\'isticas METABU y en los espacios de referencia (AutoSklearn, Landmark, SCOT).
+En la primera tarea, el objetivo es cuantificar hasta qu\'e punto el vecindario de un conjunto de datos en el espacio de meta-caracter\'isticas MetaFeatX coincide con su vecindario real en el espacio de distribuciones de configuraciones de alto rendimiento.  Para cada conjunto de datos de prueba se calcula, por un lado, la lista ordenada de vecinos m\'as cercanos seg\'un la distancia de Wasserstein entre sus representaciones objetivo, y, por otro, la lista de vecinos seg\'un la distancia eucl\'idea en el espacio de meta-caracter\'isticas MetaFeatX y en los espacios de referencia (AutoSklearn, Landmark, SCOT).
 
 La similitud entre ambas listas se mide mediante la m\'etrica NDCG@k (normalized discounted cumulative gain) sobre los primeros k vecinos, con valores de k entre 5 y 35, y se considera como indicador el NDCG@k medio sobre todos los conjuntos de datos de prueba.  Te\'oricamente, un valor elevado de NDCG indica que la m\'etrica inducida por las meta-caracter\'isticas preserva la estructura de vecindad que es relevante para AutoML, es decir, la inducida por el comportamiento de las configuraciones de hiperpar\'ametros sobre los distintos conjuntos de datos.
 
+Dado que MetaFeatX aprende las meta-caracter\'isticas mediante un procedimiento estocástico, cada experimento se repite varias veces variando \emph{únicamente} la semilla aleatoria para capturar la variabilidad inherente al proceso de entrenamiento. Por el contrario, las meta-caracter\'isticas de referencia, al ser deterministas, se evalúan una sola vez. Los resultados reportados en la Figura~\ref{fig:task1} representan el promedio de NDCG@k sobre todas las repeticiones y todos los conjuntos de datos de prueba, reflejando así tanto la calidad como la estabilidad de MetaFeatX frente a la aleatoriedad del aprendizaje.
+
 \begin{figure}[h]
     \centering
-    % Reemplazar "fig_task1" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task1.png}
-    \caption{}
+    \includegraphics[width=1.0\textwidth]{task1.png}
+    \caption{Captura de la topología objetivo. 
+    Similaridad NDCG@k entre el vecindario inducido por las meta-características y el vecindario real basado en distribuciones de configuraciones de alto rendimiento.}
     \label{fig:task1}
 \end{figure}
 
 \subsubsection{Tarea 2: AutoML sin modelo de rendimiento}
 
-En la segunda tarea se eval\'ua la capacidad de METABU para guiar el muestreo inicial de configuraciones sin recurrir a un modelo de rendimiento expl\'icito, en un escenario puramente basado en la informaci\'on de vecindario.  Para cada conjunto de datos de prueba y para cada conjunto de meta-caracter\'isticas (METABU, AutoSklearn, Landmark, SCOT) se define una distribuci\'on sobre configuraciones, denotada $\hat{z}^{mf}$, calculada como mezcla ponderada de las distribuciones objetivo de los diez vecinos m\'as cercanos en el espacio correspondiente, ponderando cada vecino con un peso decreciente $e^{-\ell}$ seg\'un su orden y normalizando para obtener una distribuci\'on de probabilidad.
+En la segunda tarea se evalúa la capacidad de MetaFeatX para guiar el muestreo inicial de configuraciones de hiperparámetros sin recurrir a un modelo de rendimiento explícito, utilizando únicamente la información de vecindario. Para cada conjunto de datos de prueba y cada conjunto de meta-características (\textit{MetaFeatX}, AutoSklearn, Landmark, SCOT), se define una distribución sobre configuraciones, denotada $\hat{z}^{mf}$, calculada como mezcla ponderada de las distribuciones objetivo de los diez vecinos más cercanos en el espacio correspondiente:
 
-A partir de $\hat{z}^{mf}$, se muestrean iterativamente configuraciones de hiperpar\'ametros, se entrena el modelo con un presupuesto de 15 minutos de CPU y menos de 8 GB de memoria, y se registra el rendimiento de la mejor configuraci\'on encontrada hasta el instante $t$.  Para cada $t$, se ordenan los distintos conjuntos de meta-caracter\'isticas, junto con un muestreador uniforme de referencia, seg\'un el rendimiento obtenido, produciendo una curva de rango $r(t, mf)$ promediada sobre todos los conjuntos de datos, lo que permite evaluar la eficacia de cada m\'etrica a la hora de explotar la informaci\'on de experiencias previas sin aprendizaje adaptativo sobre el problema actual.
+\[
+\hat{z}^{mf} = \frac{1}{Z} \sum_{\ell=1}^{10} \exp(-\ell) z^\ell
+\]
+
+donde $z^\ell$ es la representación objetivo del $\ell$-ésimo vecino más cercano según la distancia euclídea en el espacio de meta-características $mf$, y $Z$ es una constante de normalización. Esta distribución se utiliza para ``muestrear iterativamente configuraciones de hiperparámetros'', entrenar los modelos y registrar el rendimiento de la mejor configuración encontrada hasta la iteración $t$.  
+
+Para cada iteración $t$, se calcula el rango $r(t, mf)$ de cada conjunto de meta-características, que indica la posición relativa de dicho método frente a los demás (MetaFeatX, AutoSklearn, Landmark, SCOT) y frente a un muestreador uniforme de referencia (\textit{Random1x}). Este rango se asigna observando cuál método ha encontrado la mejor configuración de hiperparámetros hasta la iteración $t$: el método con mejor rendimiento recibe rango 1, el siguiente rango 2, y así sucesivamente hasta 5.  
+
+Un rango más bajo implica que la métrica es más efectiva para identificar regiones prometedoras del espacio de hiperparámetros sin entrenar previamente el modelo en el dataset de prueba. La inclusión del muestreador uniforme permite verificar que los métodos basados en meta-características aportan información útil más allá de la simple aleatoriedad.  
+
 \begin{figure}[h]
     \centering
-    % Reemplazar "fig_task2" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task2.png}
-    \caption{}
+    \includegraphics[width=1.0\textwidth]{task2.png} 
+    \caption{Task 2: muestreo de la distribución de configuraciones de hiperparámetros sin modelo de rendimiento. Las curvas muestran el rango promedio $r(t, mf)$ sobre todos los conjuntos de datos de prueba.}
     \label{fig:task2}
 \end{figure}
 
 \subsubsection{Tarea 3: AutoML con modelo de rendimiento}
 
-La tercera tarea estudia el papel de las meta-caracter\'isticas como mecanismo de inicializaci\'on de sistemas de AutoML basados en modelos de rendimiento, en particular AutoSklearn y PMF.  En estos sistemas, la b\'usqueda de configuraciones se realiza de forma adaptativa: el m\'etodo selecciona sucesivamente configuraciones, observa su rendimiento y actualiza un modelo probabil\'istico que orienta las decisiones posteriores de muestreo.
+La tercera tarea evalúa el papel de las meta-características como mecanismo de inicialización de sistemas de AutoML basados en modelos de rendimiento, específicamente AutoSklearn y PMF. En estos sistemas, la búsqueda de configuraciones es ``adaptativa'': se seleccionan iterativamente configuraciones de hiperparámetros, se observa su rendimiento y se actualiza un modelo probabilístico que guía las decisiones de muestreo posteriores.
 
-En este caso, las meta-caracter\'isticas se utilizan para seleccionar un conjunto inicial de configuraciones prometedoras.  En AutoSklearn, se toman las mejores configuraciones observadas en los diez vecinos m\'as cercanos del conjunto de datos, seg\'un la m\'etrica en el espacio de meta-caracter\'isticas, y se eval\'uan en el conjunto de datos objetivo para alimentar el modelo de rendimiento inicial sobre el que se ejecuta la optimizaci\'on bayesiana.  En PMF, se realiza un procedimiento an\'alogo con cinco vecinos, usando sus mejores configuraciones para rellenar parcialmente la fila correspondiente al conjunto de datos en la matriz de rendimientos y as\'i inicializar su representaci\'on latente.
+En esta tarea, las meta-características se emplean para seleccionar un conjunto inicial de configuraciones prometedoras. Para AutoSklearn, se consideran las mejores configuraciones de los diez vecinos más cercanos del dataset de prueba según la distancia en el espacio de meta-características, y se evalúan en el conjunto de datos objetivo para alimentar el modelo de rendimiento inicial, sobre el cual se ejecuta la optimización bayesiana. En PMF, se realiza un procedimiento análogo utilizando cinco vecinos, cuyos mejores resultados se usan para rellenar parcialmente la fila correspondiente en la matriz de rendimientos y así inicializar su representación latente.
 
-A partir de esta fase de inicializaci\'on, el sistema contin\'ua su b\'usqueda est\'andar y el rendimiento se resume mediante curvas de rango en funci\'on del n\'umero de iteraciones, comparando versiones originales de AutoSklearn y PMF con sus variantes h\'ibridas METABU+AutoSklearn y METABU+PMF, as\'i como con muestreadores uniformes reforzados que seleccionan el mejor de varios candidatos aleatorios por iteraci\'on.
+A partir de esta fase de inicialización, el sistema continúa su búsqueda estándar. El rendimiento se resume mediante ``curvas de rango'' en función del número de iteraciones, comparando las versiones originales de AutoSklearn y PMF con sus variantes híbridas MetaFeatX+AutoSklearn y MetaFeatX+PMF. También se incluyen muestreadores uniformes reforzados (Random2× y Random4×), que seleccionan el mejor de varios candidatos aleatorios por iteración, como referencia de exploración aleatoria.  
+
+Esta tarea refleja la diferencia entre ``Exploitation y Exploration'': mientras que en Task 2 se buscaba identificar rápidamente configuraciones prometedoras (Exploitation), en Task 3 se trata de inicializar la búsqueda en una ``región diversa y de calidad'' del espacio de hiperparámetros, de modo que la optimización adaptativa pueda descubrir configuraciones aún mejores a lo largo del tiempo.
 
 \begin{figure}[h]
     \centering
-    % Reemplazar "fig_task3" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task3.png}
-    \caption{}
+    \includegraphics[width=1.0\textwidth]{task3.png}
+    \caption{AutoML con modelo de rendimiento. Curvas de rango $r(t, mf)$ que comparan las versiones originales de AutoSklearn y PMF con sus variantes híbridas inicializadas con MetaFeatX y con muestreadores uniformes. Un rango menor indica mejor desempeño relativo.}
     \label{fig:task3}
 \end{figure}
 
-\subsection{Algoritmos, hiperpar\'ametros y protocolo}
+
+\subsubsection{Algoritmos, hiperpar\'ametros y protocolo}
 
 Los experimentos se realizan para tres algoritmos de aprendizaje supervisado (AdaBoost, RandomForest y SVM, usando implementaciones de \texttt{scikit-learn}) y dos pipelines de AutoML (AutoSklearn y PMF).  Para cada algoritmo se define un espacio de hiperpar\'ametros de dimensi\'on moderada, incluyendo por ejemplo el n\'umero de \'arboles, la profundidad m\'axima y los criterios de divisi\'on en RandomForest, as\'i como par\'ametros como $C$, tipo de \emph{kernel}, grado y $\gamma$ en el caso de SVM, y un conjunto amplio de opciones de preprocesamiento y clasificaci\'on en AutoSklearn.
 
 Las representaciones objetivo de los conjuntos de datos se construyen a partir del conjunto de configuraciones con mejor rendimiento disponible: las veinte mejores sobre decenas de miles de configuraciones evaluadas en OpenML para AdaBoost, RandomForest y SVM, quinientas configuraciones por conjunto de datos para AutoSklearn y las veinte mejores entradas de la matriz de filtrado colaborativo en el caso de PMF.  El entrenamiento y evaluaci\'on de cada configuraci\'on se realiza sobre las particiones de entrenamiento, validaci\'on y prueba provistas por OpenML, recurriendo a validaci\'on cruzada de cinco pliegues para estimar el rendimiento.
 
-En todas las tareas, los indicadores se calculan mediante el esquema \emph{leave-one-out}: para cada conjunto de datos que dispone de representaci\'on objetivo, se entrena METABU sobre el resto de conjuntos de datos y sus versiones de bootstrap, y se eval\'ua sobre el conjunto excluido; adicionalmente, los ocho conjuntos de datos sin representaci\'on objetivo se incorporan como casos de prueba en las tareas de muestreo de configuraciones, donde solo es necesario observar el rendimiento y no la estructura de la representaci\'on objetivo.
+En todas las tareas, los indicadores se calculan mediante el esquema \emph{leave-one-out}: para cada conjunto de datos que dispone de representaci\'on objetivo, se entrena MetaFeatX sobre el resto de conjuntos de datos y sus versiones de bootstrap, y se eval\'ua sobre el conjunto excluido; adicionalmente, los ocho conjuntos de datos sin representaci\'on objetivo se incorporan como casos de prueba en las tareas de muestreo de configuraciones, donde solo es necesario observar el rendimiento y no la estructura de la representaci\'on objetivo.
 
-\subsection{Resultados y an\'alisis}
+\subsubsection{Resultados y an\'alisis}
 
-En la Tarea 1, las curvas de NDCG@k muestran que la m\'etrica inducida por METABU se alinea mejor que las referencias con la topolog\'ia objetivo, especialmente a medida que aumenta el valor de $k$.  Aunque la varianza es mayor debido a la naturaleza entrenable de METABU, los resultados indican que supera de forma significativa a las meta-caracter\'isticas de AutoSklearn, Landmark y SCOT para todos los valores de $k$ y para todos los espacios de hiperpar\'ametros considerados, lo que respalda la idea de que las meta-caracter\'isticas aprendidas capturan de forma m\'as fiel la estructura relevante para AutoML.
+En la Tarea 1, las curvas de NDCG@k muestran que la m\'etrica inducida por MetaFeatX se alinea mejor que las referencias con la topolog\'ia objetivo, especialmente a medida que aumenta el valor de $k$.  Aunque la varianza es mayor debido a la naturaleza entrenable de MetaFeatX, los resultados indican que supera de forma significativa a las meta-caracter\'isticas de AutoSklearn, Landmark y SCOT para todos los valores de $k$ y para todos los espacios de hiperpar\'ametros considerados, lo que respalda la idea de que las meta-caracter\'isticas aprendidas capturan de forma m\'as fiel la estructura relevante para AutoML.
 
-En la Tarea 2, las curvas de rango evidencian una mejora sustancial en la calidad del muestreo de configuraciones.  Para RandomForest, las meta-caracter\'isticas SCOT resultan competitivas en las primeras iteraciones, pero METABU pasa a dominar en fases posteriores; para AdaBoost, las meta-caracter\'isticas de AutoSklearn pueden ofrecer ligeras ventajas en las tres primeras configuraciones evaluadas, mientras que METABU se vuelve significativamente mejor a partir de ese punto; para SVM, METABU supera de forma clara y consistente a todas las alternativas a lo largo de toda la b\'usqueda.  Estos resultados indican que la topolog\'ia inducida por METABU permite explotar con mayor eficacia los vecindarios de conjuntos de datos a la hora de seleccionar regiones prometedoras del espacio de configuraciones, incluso en ausencia de un modelo de rendimiento adaptativo.
+En la Tarea 2, las curvas de rango evidencian una mejora sustancial en la calidad del muestreo de configuraciones.  Para RandomForest, las meta-caracter\'isticas SCOT resultan competitivas en las primeras iteraciones, pero MetaFeatX pasa a dominar en fases posteriores; para AdaBoost, las meta-caracter\'isticas de AutoSklearn pueden ofrecer ligeras ventajas en las tres primeras configuraciones evaluadas, mientras que MetaFeatX se vuelve significativamente mejor a partir de ese punto; para SVM, MetaFeatX supera de forma clara y consistente a todas las alternativas a lo largo de toda la b\'usqueda.  Estos resultados indican que la topolog\'ia inducida por MetaFeatX permite explotar con mayor eficacia los vecindarios de conjuntos de datos a la hora de seleccionar regiones prometedoras del espacio de configuraciones, incluso en ausencia de un modelo de rendimiento adaptativo.
 
-En la Tarea 3, las variantes METABU+AutoSklearn y METABU+PMF mejoran los rangos obtenidos por las versiones originales de AutoSklearn y PMF, pese a que la \'unica diferencia entre ellas reside en la fase de inicializaci\'on.  En particular, METABU+AutoSklearn sobrepasa al pipeline AutoSklearn puro a partir de un n\'umero moderado de iteraciones, y METABU+PMF consigue superar al muestreo uniforme reforzado que elige el mejor de cuatro configuraciones aleatorias a partir de aproximadamente la d\'ecima iteraci\'on.  Este comportamiento sugiere que las meta-caracter\'isticas de METABU no solo favorecen la explotaci\'on, al identificar una buena regi\'on inicial del espacio de configuraciones, sino que tambi\'en facilitan una exploraci\'on eficaz cuando se combinan con modelos de rendimiento que se actualizan de manera incremental.
+En la Tarea 3, las variantes MetaFeatX+AutoSklearn y MetaFeatX+PMF mejoran los rangos obtenidos por las versiones originales de AutoSklearn y PMF, pese a que la \'unica diferencia entre ellas reside en la fase de inicializaci\'on.  En particular, MetaFeatX+AutoSklearn sobrepasa al pipeline AutoSklearn puro a partir de un n\'umero moderado de iteraciones, y MetaFeatX+PMF consigue superar al muestreo uniforme reforzado que elige el mejor de cuatro configuraciones aleatorias a partir de aproximadamente la d\'ecima iteraci\'on.  Este comportamiento sugiere que las meta-caracter\'isticas de MetaFeatX no solo favorecen la explotaci\'on, al identificar una buena regi\'on inicial del espacio de configuraciones, sino que tambi\'en facilitan una exploraci\'on eficaz cuando se combinan con modelos de rendimiento que se actualizan de manera incremental.
 
-\subsection{Sensibilidad e interpretabilidad}
+\subsubsection{Sensibilidad e interpretabilidad}
 
-El an\'alisis de sensibilidad se centra en los par\'ametros $\alpha$, que pondera las componentes Wasserstein y Gromov-Wasserstein en la distancia FGW, y $\lambda$, que controla el peso de la regularizaci\'on L1 sobre la transformaci\'on lineal $\psi$.  Se eval\'ua la diferencia NDCG@10(METABU) $-$ NDCG@10(AutoSklearn) sobre una rejilla de valores de $\alpha$ y $\lambda$, observ\'andose que dicha diferencia es positiva en todo el dominio considerado y estad\'isticamente significativa para niveles de significaci\'on convencionales.  Adem\'as, METABU muestra baja sensibilidad cuando $\lambda \leq 10^{-3}$ y $\alpha$ se sit\'ua entre 0.3 y 0.7, mientras que valores extremos de $\alpha$ que anulan pr\'acticamente una de las dos componentes de la distancia conducen a una degradaci\'on apreciable del rendimiento.
+El análisis de sensibilidad se centra en los dos hiperparámetros propios de MetaFeatX: $\alpha$, que pondera las componentes Wasserstein y Gromov-Wasserstein en la distancia FGW, y $\lambda$, que controla el peso de la regularización L1 sobre la transformación lineal $\psi$. La sensibilidad se evalúa sobre Task 1, inspeccionando la diferencia
+\[
+\text{NDCG@10(MetaFeatX)} - \text{NDCG@10(AutoSklearn)}
+\]
+para $\alpha \in \{0.1, 0.3, 0.5, 0.7, 0.99\}$ y $\lambda \in \{10^{-1}, 10^{-2}, 10^{-3}, 10^{-4}\}$. Los resultados, mostrados en la Figura~\ref{fig:variabilidad}, indican que la diferencia es positiva en todo el dominio considerado y estadísticamente significativa según un test t de Student con $p<0.05$.  
 
-En cuanto a la dimensi\'on intr\'inseca del espacio de conjuntos de datos, definida a partir de la distribuci\'on de distancias de Wasserstein de orden uno entre representaciones objetivo, se estima que es aproximadamente 6 para AutoSklearn, 8 para AdaBoost, 9 para RandomForest y 14 para SVM, con un an\'alisis adicional de estabilidad que muestra c\'omo esta dimensi\'on crece al incorporar m\'as conjuntos de datos.  Esta medida proporciona una interpretaci\'on cuantitativa de la complejidad del problema de AutoML desde la perspectiva de cada algoritmo: cuanto m\'as variada es la respuesta de un algoritmo a los distintos conjuntos de datos, mayor es la dimensi\'on intr\'inseca asociada.
+Se observa además que MetaFeatX presenta baja sensibilidad frente a $\lambda$ siempre que esta sea suficientemente pequeña ($\lambda \leq 10^{-3}$). En este rango, también se aprecia baja sensibilidad respecto a $\alpha$ en el intervalo $[0.3,0.7]$. Esto confirma la importancia de considerar ambas distancias: descartar la componente Wasserstein ($\alpha \leq 0.1$) o la Gromov-Wasserstein ($\alpha \geq 0.99$) degrada significativamente el rendimiento, mientras que los valores intermedios producen resultados estables y robustos.
 
-Por \'ultimo, se analiza la interpretabilidad de las meta-caracter\'isticas METABU proyectando las representaciones aprendidas mediante an\'alisis de componentes principales y midiendo la importancia de cada meta-caracter\'istica manual como contribuci\'on a la primera componente principal.  Representando cada meta-caracter\'istica como un punto en el plano definido por sus importancias para dos algoritmos distintos, se obtiene una visi\'on de qu\'e propiedades de los datos son compartidas o espec\'ificas de cada algoritmo, observ\'andose, por ejemplo, que el \'indice de Dunn y las medidas de importancia de atributos resultan relevantes tanto para RandomForest como para AdaBoost, mientras que la proporci\'on de instancias con valores perdidos y el desbalanceo de clases afectan m\'as a AdaBoost, y la dispersidad y la asimetr\'ia de los atributos tienen un peso mayor en SVM que en RandomForest.
+En cuanto a la dimensión intrínseca del espacio de conjuntos de datos, estimada a partir de la distribución de distancias de Wasserstein de orden uno entre representaciones objetivo, se obtienen valores aproximados de 6 para AutoSklearn, 8 para AdaBoost, 9 para RandomForest y 14 para SVM. Un análisis adicional de estabilidad muestra cómo esta dimensión crece al incorporar más conjuntos de datos, ofreciendo una interpretación cuantitativa de la complejidad del problema de AutoML desde la perspectiva de cada algoritmo: cuanto más variada es la respuesta de un algoritmo a distintos conjuntos de datos, mayor es la dimensión intrínseca asociada.
+
+Finalmente, la interpretabilidad de las meta-características se analiza proyectando las representaciones aprendidas mediante análisis de componentes principales (PCA) y midiendo la importancia de cada meta-característica manual como contribución a la primera componente principal. Representando cada meta-característica como un punto en el plano definido por sus importancias para dos algoritmos distintos, se obtiene una visión de qué propiedades de los datos son compartidas o específicas de cada algoritmo. Por ejemplo, el índice de Dunn y las medidas de importancia de atributos resultan relevantes tanto para RandomForest como para AdaBoost, mientras que la proporción de instancias con valores perdidos y el desbalanceo de clases afectan más a AdaBoost, y la dispersidad y la asimetría de los atributos tienen mayor peso en SVM que en RandomForest.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{variabilidades.png}
+    \caption{Sensibilidad de MetaFeatX frente a los hiperparámetros $\alpha$ y $\lambda$, medida como la diferencia NDCG@10 respecto a AutoSklearn. Valores más oscuros indican mejor rendimiento.}
+    \label{fig:variabilidad}
+\end{figure}
+
+\subsection{Experimentación adicional y análisis propio}
 
 
 %-------------------------------------------------
