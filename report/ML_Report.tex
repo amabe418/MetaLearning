@@ -1,13 +1,25 @@
 \documentclass[12pt]{article}
 \usepackage[utf8]{inputenc}
 \usepackage[spanish]{babel}
+\addto\captionsspanish{\renewcommand{\abstractname}{Abstract}}
 \usepackage{geometry}
 \usepackage{graphicx}
-\usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{multirow}
+\usepackage{float}  
+\usepackage{lipsum}
+\usepackage[authoryear]{natbib}
+\usepackage[colorlinks=true,
+            linkcolor=blue,
+            citecolor=blue,
+            urlcolor=blue]{hyperref}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{array}
+
 
 \geometry{a4paper, left=2.5cm, right=2.5cm, top=2.5cm, bottom=2.5cm}
 
@@ -34,7 +46,16 @@
     showtabs=false,                  
     tabsize=2
 }
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
 \lstset{style=mystyle}
+
 
 \begin{document}
 
@@ -66,29 +87,28 @@
     {\large \today}
 \end{titlepage}
 
+\begin{abstract}
+Este trabajo aborda el problema de AutoML, proponiendo un enfoque basado en meta-learning que aprende 
+meta-features de datasets (MetaFeatX) y utiliza transfer-learning para predecir configuraciones óptimas 
+de hiperparámetros. Se presenta la motivación del proyecto, los problemas que resuelve, y se muestran 
+resultados experimentales en comparación con sistemas AutoML tradicionales. La combinación de 
+MetaFeatX y transfer-learning permite un AutoML más eficiente, interpretable y con menor costo computacional.
+\end{abstract}
 
 \tableofcontents
 \newpage
 
 
-% \begin{center}
-% \LARGE \textbf{Introducci\'on}
-% \end{center}
-% \addcontentsline{toc}{section}{Introducci\'on}
-
-\section{Introducción al Meta-Learning}
-
-El meta-learning, o ``aprendizaje a aprender'', es un área del aprendizaje automático que busca 
+\section{Introducción}
+\label{sec:intro}
+El \textbf{meta-learning}, o ``aprendizaje a aprender'', es un área del aprendizaje automático que busca 
 desarrollar algoritmos capaces de \textbf{aprender de experiencias pasadas para mejorar el rendimiento 
 en nuevas tareas}. A diferencia del aprendizaje tradicional, donde un modelo se entrena para una 
 tarea específica, el meta-learning se centra en \textbf{extraer conocimiento generalizable} que pueda 
 transferirse a problemas desconocidos, acelerando el proceso de aprendizaje y mejorando la eficiencia.
 
-En el contexto de AutoML (Automated Machine Learning), el meta-learning se utiliza para 
-\textbf{seleccionar automáticamente algoritmos y configuraciones de hiperparámetros} adecuadas para un 
-conjunto de datos dado, basándose en información obtenida de datasets anteriores. Esto permite reducir 
-significativamente el tiempo de experimentación y evitar la necesidad de un ajuste manual exhaustivo de 
-los modelos.
+En el contexto de \textbf{AutoML} (Automated Machine Learning), el meta-learning permite \textbf{seleccionar automáticamente algoritmos y configuraciones de hiperparámetros} adecuadas para un conjunto de datos dado, basándose en información obtenida de datasets anteriores. Esto reduce significativamente el tiempo de experimentación y evita la necesidad de un ajuste manual exhaustivo de los modelos.
+
 
 
 \paragraph{Conceptos Clave: }Para comprender meta-learning y el enfoque que se presenta en este reporte, es importante familiarizarse
@@ -124,8 +144,13 @@ los modelos.
 
 \paragraph{Motivación y Problema}  
 % \subsection{Motivación y Problema}
-El problema central que se aborda con meta-learning es ``cómo lograr que un sistema AutoML pueda predecir de manera eficiente qué algoritmos y configuraciones funcionarán bien en un nuevo dataset'',
-sin tener que evaluar exhaustivamente todas las posibilidades. 
+El principal desafío que aborda este proyecto es: \textit{cómo lograr que un sistema AutoML prediga de manera eficiente qué algoritmos y configuraciones funcionarán bien en un nuevo dataset}, sin tener que evaluar exhaustivamente todas las posibilidades. Los problemas principales incluyen:
+
+\begin{itemize}
+    \item \textbf{Cold-start:} Para un dataset nuevo, no se conoce previamente qué configuraciones funcionarán, lo que obliga a probar muchas combinaciones costosas.  
+    \item \textbf{Diseño de meta-features:} No siempre las meta-features manuales garantizan buena generalización entre datasets.  
+    \item \textbf{Espacio de datasets complejo:} La diversidad de datasets y algoritmos hace difícil estimar qué configuraciones funcionarán bien.
+\end{itemize}
 
 Aunque existen sistemas como AutoSkLearn, PMF u OBOE que implementan estrategias de selección y 
 optimización, estos enfoques requieren lanzar experimentos para cada nuevo dataset (fase cold-start), 
@@ -144,43 +169,610 @@ Estas meta-features permiten:
     intuición sobre la naturaleza del problema.
 \end{itemize}
 
-\paragraph{Descripción del Modelo:}
-El modelo usado es un sistema de meta-learning diseñado para aprender automáticamente meta-features 
-representativas de los datasets, las cuales se utilizan para guiar la selección de algoritmos y 
-configuraciones de hiperparámetros en sistemas de AutoML. La idea central de MetaFeatX es construir 
-una representación de los datasets que capture de manera efectiva la relación entre las características 
-del conjunto de datos y las configuraciones de hiperparámetros que producen los mejores resultados. Para
-lograr esto, el sistema considera dos tipos de representaciones. La primera, llamada representación 
-básica, consiste en un conjunto de meta-features manualmente diseñadas que describen estadísticamente 
-los atributos del dataset, sus dimensiones y la distribución de clases. La segunda, denominada 
-representación objetivo, describe cada dataset como la distribución de configuraciones de hiperparámetros
-que permiten alcanzar el mejor rendimiento; esta representación solo está disponible para datasets ya
-evaluados.  
 
-El aprendizaje de las meta-features en MetaFeatX se realiza mediante un procedimiento de Transporte 
-Óptimo, que permite encontrar una transformación de las meta-features básicas hacia nuevas meta-features
-aprendidas. El objetivo de esta transformación es que la distancia euclidiana entre datasets en el 
-espacio de meta-features aprendidas emule la distancia Wasserstein-Gromov entre las distribuciones de 
-configuraciones óptimas de los datasets. De esta forma, datasets que son similares según MetaFeatX 
-tienden a compartir configuraciones de hiperparámetros similares, lo que permite un AutoML más eficiente 
-y con menor costo computacional, evitando la necesidad de evaluar exhaustivamente todas las posibles 
-configuraciones para cada nuevo dataset.
+\paragraph{Modelo 1: MetaFeatX}  
+MetaFeatX es un sistema de meta-learning que aprende automáticamente meta-features representativas de los datasets para guiar la selección de algoritmos y configuraciones de hiperparámetros. La idea central es construir un \textbf{embedding} de los datasets que capture la relación entre sus características y los hiperparámetros que producen los mejores resultados. 
 
-Entre las ventajas de MetaFeatX se encuentran la inicialización eficiente de sistemas AutoML en nuevos 
-datasets, la reducción de la experimentación costosa, y la posibilidad de obtener interpretabilidad 
-sobre qué características de un dataset influyen en el desempeño de un algoritmo. Adicionalmente, 
-MetaFeatX permite estimar la dimensionalidad intrínseca del espacio de datasets respecto a un algoritmo 
-de aprendizaje, proporcionando información sobre la complejidad relativa de los problemas. En comparación 
-con sistemas AutoML clásicos, que aprenden un modelo de rendimiento por dataset individual, MetaFeatX se destaca
-por transferir conocimiento de datasets previos, caracterizándose como un enfoque de meta-learning. 
-Esta transferencia de conocimiento permite evitar la fase de inicio en frío para nuevos datasets, 
-mejorar el desempeño promedio en la selección de algoritmos y configuraciones, y generar representaciones 
-generalizables que reflejan la topología del espacio de datasets de manera más eficiente.
+Su funcionamiento se basa en:
 
-\section{}
+\begin{enumerate}
+    \item Aprender nuevas meta-features mediante un procedimiento de \textbf{Transporte Óptimo}, alineando las meta-features manuales con la distribución de configuraciones óptimas.  
+    \item Estimar la \textbf{topología} del espacio de datasets y la \textbf{dimensionalidad intrínseca} del espacio de problemas para cada algoritmo o pipeline.  
+    \item Identificar los datasets más \textbf{similares} a la tarea actual, generando un ranking de algoritmos prometedores.
+\end{enumerate}
+
+\paragraph{Modelo 2: Transfer-Learning para Hiperparámetros}  
+Este segundo modelo recibe el ranking de algoritmos de MetaFeatX y predice los \textbf{valores de hiperparámetros} más prometedores para cada algoritmo, basándose en los datasets vecinos en el embedding aprendido. Esto permite una inicialización eficiente de AutoML y evita el costo computacional de explorar todas las configuraciones posibles desde cero.
+
+\paragraph{Conexión con AutoML}  
+La combinación de ambos modelos permite realizar tareas típicas de AutoML de manera más eficiente:
+
+\begin{itemize}
+    \item Selección de algoritmo: basada en la similitud de datasets en el embedding de MetaFeatX.  
+    \item Optimización de hiperparámetros: predicha por el modelo de transfer-learning usando vecinos.  
+\end{itemize}
+
+En resumen, este enfoque de meta-learning permite reducir la fase de \textit{cold-start}, mejorar la eficiencia de AutoML, y proporcionar interpretabilidad sobre cuándo y por qué un algoritmo funciona bien para un dataset específico.
 
 
+%-------------------------------------------------
+\newpage
+\section{MetaFeatX}
+\label{sec:metafeatx}
+
+
+Obtener el máximo rendimiento de un portafolio de algoritmos para una instancia de problema específica 
+se reconoce como un cuello de botella importante en dominios que van desde la Programación por 
+Restricciones y Satisfacibilidad hasta el Aprendizaje Automático.
+Los enfoques iniciales investigaron el uso de modelos de rendimiento generales \citep{rice1976}, 
+que estiman a priori el desempeño de cualquier algoritmo sobre cualquier instancia de problema, 
+donde cada instancia se describe mediante un vector de \emph{meta-features}, y el modelo 
+de rendimiento se aprende en este espacio de meta-features.
+
+En el contexto del Aprendizaje Automático supervisado, muchas meta-features han sido diseñadas 
+manualmente para describir datasets.
+Tras varios desafíos internacionales de AutoML, destinados a automatizar la selección y ajuste de 
+pipelines de ML \citep{hutter2019,guyon2019}, se ha observado que un modelo de rendimiento general y preciso 
+difícilmente puede basarse únicamente en estas meta-features \citep{misir2017}. Por ejemplo, el 
+AutoSkLearn \citep{feurer2015} se basa en optimización bayesiana y aprende iterativamente un modelo de rendimiento específico para cada dataset; PMF \citep{fusi2018} utiliza un enfoque probabilístico de filtrado colaborativo, y OBOE \citep{yang2019} combina filtrado colaborativo con aprendizaje activo.
+
+El enfoque \textbf{MetaFeatX} se inspira en el trabajo de Rakotoarison et al. \citep{rakotoarison2022}, que propone aprender meta-features capaces de capturar la topología del espacio de datasets en relación con el desempeño de un algoritmo de ML. MetaFeatX considera dos representaciones de los datasets: la básica, compuesta por 135 meta-features diseñadas manualmente, y la objetivo, que representa un dataset mediante la distribución de configuraciones de hiperparámetros de \(A\) que producen los mejores rendimientos. Para alinear ambas representaciones se utiliza Transporte Óptimo, de modo que la distancia euclidiana entre las meta-features aprendidas imite la distancia Wasserstein-Gromov sobre la representación objetivo \citep{cuturi2013,peyre2019,memoli2011}. Este procedimiento permite derivar meta-features que pueden ser computadas desde cero para nuevos datasets, sin necesidad de un arranque en frío como en \cite{yang2019,fusi2018}.
+
+Entre los aspectos más relevantes de MetaFeatX se destacan: 
+\begin{enumerate}
+    \item Las meta-features definen una topología eficiente del espacio de datasets, útil para identificar regiones prometedoras de hiperparámetros.  
+    \item Pueden ser empleadas como espacio de representación para inicializar otros métodos de AutoML o transfer-learning.  
+    \item Permiten estimar la dimensionalidad intrínseca del espacio de datasets respecto a un algoritmo, lo que proporciona información sobre la complejidad de la tarea. Por ejemplo, se puede comparar la dimensión intrínseca de OpenML CC-18 respecto a AutoSkLearn, SVM , o Random Forest .
+\end{enumerate}
+
+Esta sección se centra en presentar los aspectos más importantes del trabajo de Rakotoarison et al. (2022) y su relevancia para la construcción de meta-features en tareas de AutoML.
+
+
+\subsection{AutoML y Meta-Features}
+\label{sec:automl}
+Las meta-features son estadísticas que describen datasets supervisados y se han diseñado manualmente considerando información descriptiva, teoría de la información, estructura geométrica y \emph{landmarking} (por ejemplo, desempeño de clasificadores simples). En dominios relacionados, como Satisfacibilidad (SAT) o Programación por Restricciones (CP), también existen meta-features manuales.  
+
+En AutoML, estas meta-features se utilizan principalmente para inicializar la búsqueda de optimización \citep{feurer2015}, pero no siempre garantizan un modelo de rendimiento preciso \citep{misir2017}. Por ello, se han explorado enfoques de meta-features aprendidas, usando modelos de rendimiento complejos \citep{hazan2018} o redes neuronales que representan cada dataset como función de su distribución. Sin embargo, estas redes requieren grandes cantidades de datos, mientras que los benchmarks de AutoML incluyen relativamente pocos datasets. Esto motiva métodos como MetaFeatX, que construyen representaciones efectivas basándose en meta-features existentes.
+
+\subsection{Transporte Óptimo}
+\label{sec:ot}
+MetaFeatX se apoya en el Transporte Óptimo (OT) para medir la similitud entre datasets en dos representaciones: la básica (meta-features existentes) y la objetivo (rendimiento óptimo de configuraciones de hiperparámetros).  
+
+Sea \((\Omega_x, d_x)\) y \((\Omega_y, d_y)\) espacios métricos compactos con distribuciones \(x\) y \(y\). El conjunto de distribuciones con márgenes \(x\) y \(y\) se denota \(\Gamma(x,y)\), y \(c: \Omega_x \times \Omega_y \to \mathbb{R}^+\) es la función de costo de transporte.  
+
+El problema de OT busca una distribución \(\gamma \in \Gamma(x,y)\) que minimice el costo esperado \citep{peyre2019}:
+\begin{equation}
+    d_W^q(x,y) = \left( \min_{\gamma \in \Gamma(x,y)} \mathbb{E}_{(x,y)\sim\gamma} [c^q(x,y)] \right)^{1/q},
+\end{equation}
+definiendo la distancia de Wasserstein de orden \(q\).
+
+La distancia \textbf{Gromov-Wasserstein (GW)} mide qué tan bien se preservan las relaciones internas de cada dominio \citep{memoli2011}:
+\begin{equation}
+    d_{GW}^q(x,y) = \left( \min_{\gamma \in \Gamma(x,y)} \mathbb{E}_{(x,y),(x',y')\sim\gamma} \big| d_x(x,x') - d_y(y,y') \big|^q \right)^{1/q}.
+\end{equation}
+
+La \textbf{Fused Gromov-Wasserstein (FGW)} combina ambas  \citep{titouan2019}:
+\begin{equation}
+\begin{aligned}
+    d_{FGW;\alpha}^q(x,y) = \min_{\gamma \in \Gamma(x,y)} & \; (1-\alpha) \underbrace{\int c^q(x,y) \, d\gamma(x,y)}_{\text{Wasserstein Loss}} \\
+    & + \alpha \underbrace{\int\!\int |d_x(x,x') - d_y(y,y')|^q \, d\gamma(x,y) d\gamma(x',y')}_{\text{Gromov-Wasserstein Loss}},
+\end{aligned}
+\end{equation}
+donde \(\alpha \in [0,1]\) controla el balance: \(\alpha=0\) corresponde a Wasserstein, \(\alpha=1\) a Gromov-Wasserstein.  
+
+Estas distancias permiten evaluar la similitud entre datasets considerando tanto las meta-features como la estructura de rendimiento de los algoritmos, y constituyen la base de MetaFeatX para construir representaciones que conectan la información básica con la objetivo, facilitando la transferencia de conocimiento entre datasets.
+Esta metodología se ha usado previamente en adaptación de dominio y transfer learning \citep{Courty_2017_NeurIPS,AlvarezMelis_Fusi_2020} y en la consistencia de espacios latentes de autoencoders \citep{Xu_2020_CVPR,Nguyen_2020_ICML}, y constituye la base de MetaFeatX para vincular la información básica con la objetivo.
+
+\subsection{Principio de MetaFeatX y Argumentación del Benchmark}
+MetaFeatX busca aprender nuevas meta-features para algoritmos de ML a partir de meta-features básicas y representaciones objetivo, siguiendo un enfoque basado en Transporte Óptimo.  
+
+Cada dataset se puede representar de dos formas:
+\begin{enumerate}
+    \item \textbf{Representación básica:} Un vector de las $D$ meta-features manualmente diseñadas, fácil de calcular para cualquier dataset.
+    \item \textbf{Representación objetivo:} La distribución de configuraciones de hiperparámetros que producen los mejores resultados para un dataset, disponible solo para un subconjunto de datasets del benchmark.
+\end{enumerate}
+
+La idea de MetaFeatX es construir un \emph{puente} entre estas dos representaciones. Para ello:
+\begin{itemize}
+    \item Se proyecta la representación objetivo en un espacio de dimensión más baja $d$ mediante un método que preserve distancias, como Multi-Dimensional Scaling (MDS). Esto produce vectores $u_i \in \mathbb{R}^d$ para cada dataset \citep{cox2001}
+    \item Se aprende un mapeo $\psi: \mathbb{R}^D \to \mathbb{R}^d$ que transforma la representación básica al espacio proyectado, de manera que la distancia euclidiana entre $\psi(x_i)$ refleje la topología de los $u_i$, usando la distancia \textbf{Fused Gromov-Wasserstein}.
+\end{itemize}
+
+El resultado de este mapeo son las \textbf{meta-features MetaFeatX}, que:
+\begin{itemize}
+    \item Se pueden calcular de manera económica a partir de las meta-features básicas.
+    \item Definen una distancia euclidiana que refleja la proximidad de datasets en términos de desempeño de hiperparámetros, facilitando tareas de AutoML como inicialización de optimización o transferencia de conocimiento.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{pca2.png} % cambia la ruta según donde esté tu imagen
+    \caption{
+        Configuraciones principales de los datasets A, B y C, donde B (en naranja) (respecto a C, en verde) es el vecino más cercano de A con respecto a la representación objetivo.
+    }
+    \label{fig:metabu_top_configurations}
+\end{figure}
+
+
+\textbf{Argumentación del benchmark.}
+
+Como los benchmarks de AutoML (por ejemplo, OpenML CC-18) contienen relativamente pocos datasets etiquetados con representaciones objetivo, existe riesgo de sobreajuste al aprender las meta-features.  
+MetaFeatX aborda este problema mediante un procedimiento de \emph{bootstrap} \citep{efron1979}, que genera datasets adicionales a partir de los existentes para densificar el espacio de meta-features.  
+Este procedimiento puede incluir la adición de ruido siguiendo una distribución gaussiana, lo que permite explorar más exhaustivamente el espacio de meta-features y mejorar la generalización del modelo.
+
+\subsection{Algoritmo MetaFeatX}
+
+El algoritmo MetaFeatX se entrena sobre $p = 1000 \times n$ datasets de entrenamiento del benchmark, previamente aumentados mediante \emph{bootstrap} (ver sección anterior y Apéndice B). Las meta-features de MetaFeatX se construyen en un ``procedimiento de tres pasos'' ilustrado en la Figura~\ref{fig:metabu_pipeline}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{illustration_metabu.png} % ajusta la ruta de la imagen
+    \caption{De las meta-features básicas a las MetaFeatX usando Fused Gromov-Wasserstein. Representaciones básicas (círculos), MetaFeatX (cuadrados) y representaciones objetivo (subgráfico izquierdo). Datasets vecinos en el espacio objetivo mantienen el mismo color en todos los subgráficos.}
+    \label{fig:metabu_pipeline}
+\end{figure}
+
+\paragraph{Paso 1: Representación objetivo y distancia de Wasserstein.}  
+Para cada dataset de entrenamiento $i$, se define $\Theta_i \subset \mathcal{T}$ como el conjunto de configuraciones de hiperparámetros cuyo desempeño se encuentra en el top-L de configuraciones conocidas ($L = 20$ en los experimentos). La \emph{representación objetivo} $z_i$ se define como la distribución discreta con soporte $\Theta_i$.  
+La distancia entre datasets se mide mediante la ``distancia 1-Wasserstein'':
+\begin{equation}
+    d_W^1(z_i, z_j) = \min_{\gamma \in \Gamma(z_i, z_j)} \mathbb{E}_{(x,y)\sim\gamma}[c(x,y)],
+\end{equation}
+donde $c$ es el costo de transporte Euclidiano en el espacio de configuraciones.
+
+\paragraph{Paso 2: Proyección de la representación objetivo en $\mathbb{R}^d$.}  
+La representación $z_i$ se proyecta en $\mathbb{R}^d$, donde $d$ se estima usando una medida de dimensionalidad intrínseca (ver más abajo). Se utiliza ``Multi-Dimensional Scaling (MDS)'' para que la distancia euclidiana entre las proyecciones $u_i$ y $u_j$ aproxime la distancia 1-Wasserstein:
+\begin{equation}
+    d(u_i, u_j) \approx d_W^1(z_i, z_j).
+\end{equation}  
+Estas proyecciones $u_i$ se definen hasta una isometría, pero preservan la topología relativa de los datasets en el espacio objetivo.
+
+\paragraph{Paso 3: Aprendizaje de las MetaFeatX.}  
+Se define la distribución discreta uniforme sobre las representaciones básicas:
+\begin{equation}
+    x = \frac{1}{p} \sum_{i=1}^{p} \delta_{x_i},
+\end{equation}
+y sobre las proyecciones objetivo:
+\begin{equation}
+    u = \frac{1}{n} \sum_{i=1}^{n} \delta_{u_i}.
+\end{equation}
+
+Las MetaFeatX se construyen encontrando un mapeo $\psi: \mathbb{R}^D \to \mathbb{R}^d$ que minimice la distancia ``Fused Gromov-Wasserstein'' entre la distribución push-forward $\psi_\# x$ y $u$:
+\begin{equation}
+    \psi^* = \arg \min_{\psi \in \Psi} d_{FGW;\alpha}^q(\psi_\# x, u) + \lambda \|\psi\|,
+\end{equation}
+donde $\lambda$ es un parámetro de regularización y $\|\psi\|$ es la norma de la función $\psi$. Se considera $\psi$ lineal para evitar sobreajuste y facilitar la interpretación respecto a las meta-features básicas.
+
+La optimización se realiza mediante un esquema de ``bilevel optimization'' \citep{xu2020}:
+\begin{itemize}
+    \item \textbf{Problema interno:} minimizar $d_{FGW;\alpha}(\psi_\# x, u)$ usando un método de gradiente proximal \citep{xu2019}, refinando la matriz de transporte $\gamma$ con el ``algoritmo de Sinkhorn'' \citep{cuturi2013}.
+    \item \textbf{Problema externo:} optimizar $\psi$ considerando $\gamma$ como constante, usando el optimizador ``ADAM'' \citep{kingma2015adam} con tasa de aprendizaje 0.01, $\alpha = 0.5$ y $\lambda = 0.001$.
+\end{itemize}
+
+\paragraph{Dimensión intrínseca del espacio de datasets.}  
+El parámetro principal de MetaFeatX es $d$, el número de meta-features necesarias para aproximar la representación objetivo. Se estima usando un método basado en vecinos más cercanos : para cada muestra $x$, se calculan sus primeras distancias a los vecinos $x^{(1)}$ y $x^{(2)}$, y se define
+\begin{equation}
+    \mu(x) = \frac{d(x, x^{(2)})}{d(x, x^{(1)}) + \epsilon}.
+\end{equation}  
+Ordenando las muestras por $\mu(x_i)$, $d$ se obtiene como la pendiente de la aproximación lineal de la curva
+\begin{equation}
+    \{ (\log \mu(x_i), -\log (1 - \frac{i}{(m+1)})), 1 \le i \le m \},
+\end{equation}
+proporcionando una estimación garantizada de la dimensionalidad intrínseca del espacio donde habitan los datasets.
+
+Este procedimiento asegura que las MetaFeatX reflejen la topología del espacio objetivo y puedan ser computadas de manera económica a partir de las meta-features básicas, facilitando tareas de AutoML como inicialización de optimización y transferencia de conocimiento.
+
+%-------------------------------------------------
+\section{Transfer-Learning de Hiperparámetros}
+\label{sec:transfer}
+
+%-------------------------------------------------
 \section{Experimentación}
 
-\end{document}
+%-------------------------------------------------
+\section{Discusión}
 
+%-------------------------------------------------
+\section{Conclusiones}
+
+
+%-------------------------------------------------
+\begin{center}
+{\LARGE \textbf{Anexos}}\\[0.8em]
+{\Large Material Suplementario}\\[2.9em]
+\end{center}
+
+El material suplementario incluye detalles adicionales sobre:
+
+\begin{itemize}
+    \item La ampliación del benchmark OpenML (\hyperref[appendix:A]{Apéndice A})
+    \item Pseudo-código del algoritmo (\hyperref[appendix:B]{Apéndice B})
+    \item Configuración experimental, indicadores de desempeño y procedimiento de validación (\hyperref[appendix:C]{Apéndice C})
+    \item Espacio de configuración de hiperparámetros (\hyperref[appendix:D]{Apéndice D})
+    \item Lista de meta-features básicas y conjuntos de meta-features de referencia (\hyperref[appendix:E]{Apéndice E})
+    \item Detalles sobre el tiempo computacional (\hyperref[appendix:F]{Apéndice F})
+    \item Información sobre el problema AutoML proporcionada por el enfoque: dimensionalidad intrínseca (\hyperref[appendix:G1]{Apéndice G.1}) y visualización de los nichos de los algoritmos ML considerados (\hyperref[appendix:G2]{Apéndice G.2})
+    \item Resultados detallados con desviación estándar en las tres tareas (\hyperref[appendix:H]{Apéndice H})
+    \item Comparación par a par de MetaFeatX con meta-features de referencia (\hyperref[appendix:I]{Apéndice I})
+    \item Análisis de sensibilidad de la dimensión $d$ (\hyperref[appendix:J]{Apéndice J})
+    \item Curvas de desempeño de la Tarea 2 (\hyperref[appendix:K]{Apéndice K})
+\end{itemize}
+
+\newpage
+\appendix
+
+\section*{Ampliación del benchmark OpenML}
+\label{appendix:A}
+\lipsum[1] % ejemplo de contenido
+
+\section*{Pseudo-código del algoritmo}
+\label{appendix:B}
+\lipsum[2]
+
+\section*{Configuración experimental y procedimiento de validación}
+\label{appendix:C}
+\lipsum[3] 
+
+\newpage
+\section*{Espacios de Configuración de Hiperparámetros}
+\label{appendix:D}
+
+Las configuraciones de hiperparámetros utilizadas para Adaboost, Random Forest y SVM, así como sus 
+rangos, se detallan en la Tabla~\ref{tab:hp_ranges}. Para AutoSkLearn, solo se incluyó la lista de 
+hiperparámetros considerados; sus rangos están detallados en \citep{feurer2015autosklearn}. El espacio 
+de hiperparámetros usado en PMF es el mismo que en AutoSkLearn. La implementación de MetaFeatX
+utiliza la librería \texttt{ConfigSpace} \citep{lindauer2019configspace} para gestionar los 
+hiperparámetros.
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Clasificador} & \textbf{Hiper-Par\'ametro (HP)} & \textbf{Rango} \\
+\hline
+\multirow{3}{*}{Adaboost} 
+& imputation & mean, median, most frequent \\
+& n\_estimators & [50, 500] \\
+& algorithm & SAMME, SAMME.R \\
+& max\_depth & [1, 10] \\
+& learning\_rate & [0.01 , 2.0] \\
+\hline
+\multirow{7}{*}{Random Forest (RF)} 
+& imputation & mean, median, most frequent \\
+& criterion & gini, entropy \\
+& max\_features & (0, 1] \\
+& min\_samples\_split & [2, 20] \\
+& min\_samples\_leaf & [1, 20] \\
+& bootstrap & True, False \\
+\hline
+\multirow{8}{*}{SVM} 
+& imputation & mean, median, most frequent \\
+& C & [0.03125, 32768] \\
+& kernel & rbf, poly, sigmoid \\
+& degree & [1, 5] \\
+& gamma & $[3.0517578125\times 10^{-5}, 8]$ \\
+& coef0 & [-1, 1] \\
+& shrinking & True, False \\
+& tol & $[10^{-5}, 10^{-1}]$ \\
+& max\_iter & -1 \\
+\hline
+\end{tabular}
+\caption{Rangos de hiperparámetros para Adaboost, Random Forest y SVM.}
+\label{tab:hp_ranges}
+\end{table}
+
+\newpage
+
+\begin{table}[h!]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.1}
+
+\begin{tabular}{p{4cm} p{10cm}}
+\toprule
+\textbf{Método} & \textbf{Parámetros} \\
+\midrule
+
+balancing & strategy \\
+
+adaboost & learning\_rate, max\_depth, n\_estimators \\
+
+bernoulli\_nb & fit\_prior \\
+
+decision\_tree & max\_depth\_factor, max\_features, max\_leaf\_nodes,
+min\_impurity\_decrease, min\_samples\_leaf, min\_samples\_split,
+min\_weight\_fraction\_leaf \\
+
+extra\_trees & criterion, max\_depth, max\_features, max\_leaf\_nodes,
+min\_impurity\_decrease, min\_samples\_leaf, min\_samples\_split,
+min\_weight\_fraction\_leaf \\
+
+gradient\_boosting & l2\_regularization, learning\_rate, loss, max\_bins,
+max\_depth, max\_leaf\_nodes, min\_samples\_leaf, scoring, tol,
+n\_iter\_no\_change, validation\_fraction \\
+
+k\_nearest\_neighbors & p, weights \\
+
+lda & tol, shrinkage\_factor \\
+
+liblinear\_svc & dual, fit\_intercept, intercept\_scaling, loss,
+multi\_class, penalty, tol \\
+
+libsvm\_svc & gamma, kernel, max\_iter, shrinking, tol, coef0, degree \\
+
+mlp & alpha, batch\_size, beta\_1, beta\_2, early\_stopping, epsilon,
+hidden\_layer\_depth, learning\_rate\_init, n\_iter\_no\_change,
+num\_nodes\_per\_layer, shuffle, solver, tol, validation\_fraction \\
+
+multinomial\_nb & fit\_prior \\
+
+passive\_aggressive & average, fit\_intercept, loss, tol \\
+
+qda & reg\_param \\
+
+random\_forest & criterion, max\_depth, max\_features, max\_leaf\_nodes,
+min\_impurity\_decrease, min\_samples\_leaf, min\_samples\_split,
+min\_weight\_fraction\_leaf \\
+
+sgd & average, fit\_intercept, learning\_rate, loss, penalty, tol,
+epsilon, eta0, l1\_ratio, power\_t \\
+
+extra\_trees\_preproc\_for\_classification & criterion, max\_depth,
+max\_features, max\_leaf\_nodes, min\_impurity\_decrease,
+min\_samples\_leaf, min\_samples\_split, min\_weight\_fraction\_leaf,
+n\_estimators \\
+
+fast\_ica & fun, whiten, n\_components \\
+
+feature\_agglomeration & linkage, n\_clusters, pooling\_func \\
+
+kernel\_pca & n\_components, coef0, degree, gamma \\
+
+kitchen\_sinks & n\_components \\
+
+liblinear\_svc\_preprocessor & dual, fit\_intercept, intercept\_scaling,
+loss, multi\_class, penalty, tol \\
+
+nystroem\_sampler & n\_components, coef0, degree, gamma \\
+
+pca & whiten \\
+
+polynomial & include\_bias, interaction\_only \\
+
+random\_trees\_embedding & max\_depth, max\_leaf\_nodes, min\_samples\_leaf,
+min\_samples\_split, min\_weight\_fraction\_leaf, n\_estimators \\
+
+select\_percentile\_classification & score\_func \\
+
+select\_rates\_classification & score\_func, mode \\
+
+\bottomrule
+\end{tabular}
+
+\caption{Lista de hiperparámetros considerados en la pipeline de AutoSkLearn.}
+\label{tab:autosklearn_hp}
+\end{table}
+
+
+\newpage
+\section*{Lista de meta-características básicas y conjuntos de meta-características de referencia}
+\label{appendix:E}
+
+La lista de meta-features utilizadas en los experimentos se detalla en las Tablas 3 y 4.
+Las meta-features se extraen con PyMFE \citep{alcobaca2020pymfe}, excepto las meta-features de 
+AutoSkLearn, SCOT y Landmark, que se calculan a partir de la biblioteca AutoSkLearn.
+
+\begin{center}
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.0}
+
+\begin{longtable}{p{6.5cm} >{\raggedright\arraybackslash}p{8cm}}
+\caption{Lista de meta-features utilizadas en los experimentos (1/2).} \label{tab:metafeatures_1} \\
+
+\toprule
+\textbf{Meta-feature} & \textbf{Descripción} \\
+\midrule
+\endfirsthead
+
+\toprule
+\textbf{Meta-feature} & \textbf{Descripción}\\
+\midrule
+\endhead
+
+\midrule
+\multicolumn{2}{r}{\textit{Continuación en la siguiente página}} \\
+\endfoot
+
+\bottomrule
+\endlastfoot
+
+best\_node & Rendimiento del mejor nodo individual de un árbol de decisión. \\
+elite\_nn & Rendimiento del clasificador Elite Nearest Neighbor. \\
+linear\_discr & Rendimiento del clasificador Linear Discriminant. \\
+naive\_bayes & Rendimiento del clasificador Naive Bayes. \\
+one\_nn & Rendimiento del clasificador 1-Nearest Neighbor. \\
+random\_node & Nodo aleatorio del árbol de decisión. \\
+worst\_node & Nodo menos informativo del árbol de decisión. \\
+one\_itemset & Meta-feature basada en un solo itemset. \\
+two\_itemset & Meta-feature basada en dos itemsets. \\
+c1 & Entropía de las proporciones de clase. \\
+c2 & Razón de desbalance de clases. \\
+cls\_coef & Coeficiente de clustering. \\
+density & Densidad promedio del grafo. \\
+f1 & Máxima razón discriminante de Fisher. \\
+f1v & Razón discriminante direccional de Fisher. \\
+f2 & Volumen de la región de solapamiento. \\
+f3 & Máxima eficiencia individual de característica. \\
+f4 & Eficiencia colectiva de características. \\
+hubs & Hub score de la red. \\
+l1 & Suma de errores por programación lineal. \\
+l2 & Tasa de error OVO del clasificador lineal. \\
+l3 & No linealidad de clasificador lineal. \\
+lsc & Cardinalidad promedio del conjunto local. \\
+n1 & Fracción de puntos borderline. \\
+n2 & Razón de distancias intra/extraclase NN. \\
+n3 & Tasa de error del k-NN. \\
+n4 & Fracción de hiperesferas que cubren los datos. \\
+t1 & Promedio de características por dimensión. \\
+t2 & Promedio de dimensiones PCA por punto. \\
+t3 & Ratio de dimensión PCA a dimensión original. \\
+t4 & Índice de Calinski y Harabasz. \\
+ch & Índice de Calinski y Harabasz. \\
+int & INT index. \\
+nre & Entropía relativa normalizada. \\
+pb & Pearson entre matching de clase e instancias. \\
+sc & Número de clusters menores a un tamaño dado. \\
+sil & Valor medio de silhouette. \\
+vdb & Índice de Davies-Bouldin. \\
+vdu & Índice de Dunn. \\
+leaves & Número de nodos hoja en el DT. \\
+leaves\_branch & Tamaño de ramas del DT. \\
+leaves\_corrob & Corroboración de hojas del DT. \\
+leaves\_homo & Homogeneidad de hojas. \\
+leaves\_per\_class & Proporción de hojas por clase. \\
+nodes & Número de nodos no-hoja en el DT. \\
+nodes\_per\_attr & Ratio nodos/atributos. \\
+nodes\_per\_inst & Ratio nodos/no-hojas por instancia. \\
+nodes\_per\_level & Ratio nodos por nivel. \\
+nodes\_repeated & Nodos repetidos. \\
+tree\_depth & Profundidad de árbol. \\
+tree\_imbalance & Desbalance de árbol. \\
+tree\_shape & Forma del árbol. \\
+var\_importance & Importancia de características del DT. \\
+can\_cor & Correlaciones canónicas. \\
+cor & Correlación absoluta entre pares de columnas. \\
+cov & Covarianza absoluta entre pares de atributos. \\
+eigenvalues & Valores propios de la matriz de covarianza. \\
+g\_mean & Media geométrica. \\
+gravity & Distancia entre clases minoritaria y mayoritaria. \\
+h\_mean & Media armónica. \\
+iq\_range & Rango intercuartílico (IQR). \\
+kurtosis & Curtosis. \\
+lh\_trace & Lawley-Hotelling trace. \\
+mad & MAD ajustada. \\
+max & Máximo. \\
+mean & Media. \\
+median & Mediana. \\
+min & Mínimo. \\
+nr\_cor\_attr & Número de pares altamente correlacionados. \\
+nr\_disc & Número de atributos discretos. \\
+nr\_norm & Número de atributos normales. \\
+nr\_outliers & Número de outliers. \\
+p\_trace & Pillai’s trace. \\
+range & Rango (max-min). \\
+roy\_root & Raíz más grande de Roy.  \\
+sd & Desviación estándar de cada atributo. \\
+sd\_ratio & Prueba estadística de homogeneidad de covarianzas.  \\
+skewness & Sesgo de cada atributo. \\
+sparsity & Medida de sparsity (posiblemente normalizada).  \\
+t\_mean & Media recortada de cada atributo.  \\
+var & Varianza de cada atributo.  \\
+w\_lambda & Valor de Wilks’ Lambda.  \\
+attr\_conc & Coeficiente de concentración entre pares de atributos. \\
+attr\_ent & Entropía de Shannon de cada atributo predictivo.  \\
+class\_conc & Coeficiente de concentración entre atributo y clase. \\
+class\_ent & Entropía de Shannon del atributo objetivo. \\
+eq\_num\_attr & Número de atributos equivalentes para la tarea. \\
+joint\_ent & Entropía conjunta entre cada atributo y la clase. \\
+mut\_inf & Información mutua entre cada atributo y la clase.  \\
+ns\_ratio & Medida de ruido de atributos. \\
+cohesiveness & Distancia ponderada mejorada que mide densidad de distribución. \\
+conceptvar & Variación del concepto estimando la variabilidad de clases. \\
+impconceptvar & Variación mejorada del concepto estimando variabilidad de clases. \\
+wg\_dist & Distancia ponderada de la distribución de ejemplos. \\
+attr\_to\_inst & Ratio entre número de atributos y número de instancias. \\
+cat\_to\_num & Ratio entre número de atributos categóricos y numéricos. \\
+freq\_class & Frecuencia relativa de cada clase. \\
+inst\_to\_attr & Ratio entre número de instancias y atributos. \\
+nr\_attr & Número total de atributos. \\
+nr\_bin & Número de atributos binarios. \\
+nr\_cat & Número de atributos categóricos. \\
+nr\_class & Número de clases distintas. \\
+nr\_inst & Número de instancias (filas) del dataset. \\
+nr\_num & Número de atributos numéricos. \\
+num\_to\_cat & Número de atributos numéricos y categóricos. \\
+PCASkewnessFirstPC & Sesgo de ejemplos en el primer componente principal. \\
+PCAKurtosisFirstPC & Curtosis de ejemplos en el primer componente principal. \\
+PCAFracOfCompFor95Per & Fracción de componentes explicando 95\% de varianza.  \\
+Landmark1NN & Rendimiento del clasificador 1-NN.  \\
+LandmarkRandomNodeLearner &  Rendimiento de Random Node Learner.  \\
+LandmarkDecisionNodeLearner & Rendimiento de Decision Node Learner.  \\
+LandmarkDecisionTree & Rendimiento de Decision Tree.  \\
+LandmarkNaiveBayes & Rendimiento de Naive Bayes. \\
+LandmarkLDA & Rendimiento de LDA.  \\
+SkewnessSTD & Desviación estándar del sesgo de características.  \\
+SkewnessMean & Media del sesgo de características. \\
+SkewnessMax & Máximo del sesgo de características.  \\
+SkewnessMin & Mínimo del sesgo de características.  \\
+KurtosisSTD & Desviación estándar de curtosis de características.  \\
+KurtosisMean & Media de curtosis de características.  \\
+KurtosisMax & Máximo de curtosis de características.  \\
+KurtosisMin & Mínimo de curtosis de características.  \\
+SymbolsSum & Suma de símbolos de características categóricas.  \\
+SymbolsSTD & Desviación estándar de símbolos de características categóricas.  \\
+SymbolsMean & Media de símbolos de características categóricas.  \\
+SymbolsMax & Máximo de símbolos de características categóricas. \\
+SymbolsMin & Mínimo de símbolos de características categóricas.  \\
+ClassProbabilitySTD & Desviación estándar de probabilidades de clase.  \\
+ClassProbabilityMean & Media de probabilidades de clase.  \\
+ClassProbabilityMax & Máximo de probabilidades de clase.  \\
+ClassProbabilityMin & Mínimo de probabilidades de clase.  \\
+InverseDatasetRatio & Inverso del ratio dataset.  \\
+DatasetRatio & Ratio dataset. \\
+RatioNominalToNumerical & Ratio de atributos nominales a numéricos. \\
+RatioNumericalToNominal & Ratio de atributos numéricos a nominales.  \\
+NumberOfCategoricalFeatures & Número de atributos categóricos. \\
+NumberOfNumericFeatures &  Número de atributos numéricos.  \\
+NumberOfMissingValues & Número de valores faltantes.  \\
+NumberOfFeaturesWithMissingValues & Número de atributos con valores faltantes.  \\
+NumberOfInstancesWithMissingValues & Número de instancias con valores faltantes.  \\
+NumberOfFeatures & Número total de atributos. \\
+NumberOfClasses & Número de clases.  \\
+NumberOfInstances & Número de instancias.  \\
+LogInverseDatasetRatio & Logaritmo del inverso del ratio dataset.  \\
+LogDatasetRatio & Logaritmo del ratio dataset. \\
+PercentageOfMissingValues & Porcentaje de valores faltantes.  \\
+PercentageOfFeaturesWithMissingValues & Porcentaje de atributos con valores faltantes.  \\
+PercentageOfInstancesWithMissingValues & Porcentaje de instancias con valores faltantes.  \\
+LogNumberOfFeatures & Logaritmo del número de atributos.  \\
+LogNumberOfInstances & Logaritmo del número de instancias.  \\
+
+\end{longtable}
+\end{center}
+
+
+
+\newpage
+\section*{Detalles del tiempo computacional}
+\label{appendix:F}
+\lipsum[6]
+
+\section*{Perspectivas sobre el problema de AutoML}
+\label{appendix:G1}
+\lipsum[7]
+
+\subsection*{Visualización de los nichos de los algoritmos de ML}
+\label{appendix:G2}
+\lipsum[8]
+
+\section*{Resultados detallados en las tres tareas}
+\label{appendix:H}
+\lipsum[9]
+
+\section*{Comparación por pares con las meta-características de referencia}
+\label{appendix:I}
+\lipsum[10]
+
+\section*{Análisis de sensibilidad de la dimensión $d$}
+\label{appendix:J}
+\lipsum[11]
+
+\section*{Curvas de rendimiento de la Tarea 2}
+\label{appendix:K}
+\lipsum[12]
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

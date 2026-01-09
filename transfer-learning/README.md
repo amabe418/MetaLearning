@@ -177,18 +177,6 @@ print(f"Mejor: {best_alg} con {results[best_alg].best_config}")
 - LibSVM SVC
 - AutoSklearn
 
-## 📖 Referencias
-
-```bibtex
-@inproceedings{wistuba2021fsbo,
-  title={Few-Shot Bayesian Optimization with Deep Kernel Surrogates},
-  author={Wistuba, Martin and Grabocka, Josif},
-  booktitle={International Conference on Learning Representations},
-  year={2021}
-}
-```
-
-
 
 Proyecto académico - MetaLearning
 
