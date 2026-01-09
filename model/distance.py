@@ -24,16 +24,38 @@ def distance_wasserstein(distributions, return_map_matrix=False):
         - Se asume que las distribuciones son uniformes (cada punto tiene peso igual).
         - Utiliza la implementación de EMD de la librería POT (Python Optimal Transport).
     """
+
+    # Desempaquetar las dos distribuciones a comparar
     distribution_a, distribution_b = distributions
+
+    # Construir la matriz de costos M, donde M[i, j] es la distancia
+    # entre el punto i de la distribución A y el punto j de la distribución B
     M = ot.dist(distribution_a, distribution_b)
+
+    # Normalizar la matriz de costos para que sus valores estén en [0, 1]
+    # Esto mejora la estabilidad numérica y evita escalas dominantes
     M /= M.max()
+
+    # Número de puntos en cada distribución
     ns = len(distribution_a)
     nt = len(distribution_b)
+
+    # Definir distribuciones de probabilidad uniformes sobre los puntos
+    # Cada punto tiene la misma masa
     a, b = np.ones((ns,)) / ns, np.ones((nt,)) / nt
+
+    # Resolver el problema de transporte óptimo (Earth Mover's Distance)
+    # G0 es la matriz de transporte óptimo que indica cuánta masa se
+    # transporta de cada punto de A a cada punto de B
     G0 = ot.emd(a, b, M)
 
+    # Calcular la distancia de Wasserstein como el costo total del
+    # transporte óptimo: sum_{i,j} G0[i,j] * M[i,j]    
     if return_map_matrix:
         return (G0 * M).sum(), G0
+    
+
+    # Devolver también la matriz de transporte si se solicita
     return (G0 * M).sum()
 
 

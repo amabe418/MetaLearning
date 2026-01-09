@@ -1,7 +1,7 @@
 """
 Task 1 Assessment: Evaluación completa de topología definida por MetaFeatX
 
-Basado en el paper METABU: "Learning Meta-Features for AutoML" (ICLR 2022)
+Basado en el paper METAFEATX: "Learning Meta-Features for AutoML" (ICLR 2022)
 
 Objetivo: Comparar los vecinos más cercanos basados en representaciones MetaFeatX 
 con los vecinos basados en representaciones objetivo usando NDCG.
