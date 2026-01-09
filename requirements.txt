@@ -26,3 +26,4 @@ openml==0.15.1
 pymfe==0.4.4
 
 colorlog
+matplotlib==3.10.8

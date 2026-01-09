@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from model.metafeatx import MetaFeatX
-from utils import load_bootstrap_features
+from experiment.utils import load_bootstrap_features
 
 def get_model_representations(cfg, basic_reprs, target_reprs, list_ids, train_ids, test_ids):
     """
