@@ -583,10 +583,21 @@ El material suplementario incluye detalles adicionales sobre:
 \newpage
 \appendix
 
-\section*{Ampliación del benchmark OpenML}
+\section*{Augmentaci\'on del benchmark OpenML}
 \label{appendix:A}
-\lipsum[1] % ejemplo de contenido
 
+La visualización del benchmark ampliado mediante \emph{t-SNE} sobre el espacio de meta-features básicas muestra que los conjuntos de datos generados por \emph{bootstrapping} a partir de un mismo dataset original forman clústeres compactos alrededor de este. Este comportamiento es esperado, ya que las meta-features diseñadas manualmente son estables frente a pequeñas variaciones estocásticas de los datos.
+
+Asimismo, los clústeres asociados a distintos datasets de OpenML permanecen claramente separados entre sí, incluso al variar el parámetro de \emph{perplexity} en un amplio rango. Este resultado sugiere que el benchmark original de OpenML cubre de manera dispersa el espacio de meta-features, y que la ampliación mediante \emph{bootstrapping} permite densificar localmente dicho espacio sin introducir solapamientos artificiales entre datasets no relacionados.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{cluster_plot2.png}
+    \caption{Visualización 2D mediante t-SNE de los conjuntos de datos de OpenML en el espacio de representación básica ,junto con sus ampliaciones generadas por bootstrapping. Solo se muestran algunos nombres de datasets para facilitar la legibilidad..}
+    \label{fig:bootstrap}
+\end{figure}
+
+\newpage
 \section*{Pseudo-código del algoritmo}
 \label{appendix:B}
 El procedimiento de aprendizaje de MetaFeatX se describe en el Alg. 1, detallando la descripción 
@@ -1009,21 +1020,57 @@ LogNumberOfInstances & Logaritmo del número de instancias.  \\
 
 
 \newpage
-\section*{Detalles del tiempo computacional}
-\label{appendix:F}
-\lipsum[6]
 
-\section*{Perspectivas sobre el problema de AutoML}
+
+\newpage
+\section*{La estabilidad de la dimensi\'on intr\'inseca}
 \label{appendix:G1}
-\lipsum[7]
 
-\subsection*{Visualización de los nichos de los algoritmos de ML}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{intrinsic_mean.png}
+    \caption{Dimensión intrínseca del espacio de datasets con respecto a los algoritmos de ML Adaboost, RandomForest, SVM y AutoSkLearn, en función de la fracción de datasets considerados en OpenML.}
+    \label{fig:intrinsic_table}
+\end{figure}
+
+
+
+En la tabla ~\ref{fig:intrinsic_table} investigamos cómo varía la dimensión intrínseca al considerar distintos números de conjuntos de datos en OpenML. Se observa que la dimensión intrínseca tiende a aumentar con el número de conjuntos de datos considerados, especialmente en el caso de SVM y, en menor medida, en Random Forest. Esto sugiere que las configuraciones de hiperparámetros exploradas en el benchmark de OpenML para estos algoritmos no muestrean de manera suficientemente adecuada (las regiones buenas del) espacio de configuraciones.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{dimension.png}
+    \caption{Dimensión intrínseca del espacio de datasets con respecto a los algoritmos de ML Adaboost, RandomForest, SVM y AutoSkLearn, en función de la fracción de datasets considerados en OpenML.}
+    \label{fig:intrinsic_graphicx}
+\end{figure}
+
+
+\newpage
+\subsection*{Interpretación: impacto de las meta-features HC en el rendimiento del algoritmo de aprendizaje}
 \label{appendix:G2}
-\lipsum[8]
 
-\section*{Resultados detallados en las tres tareas}
-\label{appendix:H}
-\lipsum[9]
+Las meta-features \textit{MetaFeatX} se construyen a partir de las meta-features iniciales definidas manualmente (HC meta-features) mediante un mapeo lineal aprendido $\psi$, el cual depende del algoritmo de aprendizaje considerado. Este mapeo proyecta las representaciones básicas de los datasets a un espacio latente de menor dimensión que captura las propiedades relevantes para el rendimiento del algoritmo.
+
+Con el objetivo de interpretar el impacto de las meta-features originales sobre el rendimiento de cada algoritmo, se analiza la importancia de dichas características a través de un análisis de componentes principales (PCA). Para ello, se considera la matriz $U$ obtenida mediante \textit{Multidimensional Scaling} (MDS) aplicada a las representaciones objetivo de todos los datasets, tal como se describe en la Sección~3.2.
+
+El primer componente principal de $U$ representa la dirección de máxima variabilidad entre los datasets en el espacio MetaFeatX. Se identifica entonces la dimensión $j^*$ que más contribuye a dicho componente, y se utiliza el mapeo lineal $\psi$ para estimar la contribución de cada meta-feature original a esta dimensión dominante. Formalmente, la importancia de la $k$-ésima meta-feature inicial con respecto a un algoritmo de aprendizaje $A$ se define como el valor absoluto del coeficiente correspondiente $\lvert \psi_{j^*,k} \rvert$.
+
+Este procedimiento permite cuantificar qué propiedades de los datasets son más determinantes para el rendimiento de un algoritmo específico. Además, facilita la comparación entre distintos algoritmos al representar cada meta-feature como un punto en el plano bidimensional $(i_A(k), i_B(k))$, donde $i_A(k)$ y $i_B(k)$ indican la importancia de la meta-feature $k$ para los algoritmos $A$ y $B$, respectivamente.
+
+En esta representación, las meta-features cercanas a la diagonal presentan una importancia similar para ambos algoritmos, mientras que aquellas alejadas de la diagonal resultan significativamente más relevantes para uno de ellos. Este análisis permite identificar diferencias estructurales entre algoritmos y proporciona una interpretación intuitiva de por qué ciertas características del dataset favorecen el rendimiento de un algoritmo sobre otro.
+
+Los resultados confirman, en muchos casos, la intuición del experto. Por ejemplo, algunas meta-features relacionadas con la distribución de los datos resultan críticas para algoritmos basados en modelos complejos como AutoSkLearn, mientras que características relacionadas con correlaciones y asimetrías en los datos tienen un impacto mayor en algoritmos como Random Forest o Support Vector Machines. En conjunto, este análisis aporta una interpretación semántica del espacio MetaFeatX y refuerza la coherencia entre el modelo aprendido y el conocimiento práctico.
+
+Asimismo, la importancia de las meta-features con respecto a Support Vector Machines y Random Forest se muestra en la Figura ~\ref{fig:Figura_8} (derecha). Las características relacionadas con la asimetría (skewness) —media y desviación estándar sobre todos los atributos— resultan significativamente más relevantes para Support Vector Machines que para Random Forest. En retrospectiva, no sorprende que las meta-features asociadas a las posibles dificultades en la inversión de la matriz de Gram sean particularmente importantes para SVM.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{meta_feature_graphic.png}
+    \caption{Importancia comparativa de las meta-features para Random Forest vs. AutoSkLearn (izquierda) y SVM (derecha). Las meta-features específicas de AutoSkLearn se indican porque su nombre comienza con una letra mayúscula.}
+    \label{fig:Figura_8}
+\end{figure}
+
 
 \section*{Comparación por pares con las meta-características de referencia}
 \label{appendix:I}
