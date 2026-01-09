@@ -296,7 +296,7 @@ El resultado de este mapeo son las \textbf{meta-features MetaFeatX}, que:
 \end{figure}
 
 
-\textbf{Argumentación del benchmark.}
+\textbf{Augmentación del benchmark.}
 
 Como los benchmarks de AutoML (por ejemplo, OpenML CC-18) contienen relativamente pocos datasets etiquetados con representaciones objetivo, existe riesgo de sobreajuste al aprender las meta-features.  
 MetaFeatX aborda este problema mediante un procedimiento de \emph{bootstrap} \citep{efron1979}, que genera datasets adicionales a partir de los existentes para densificar el espacio de meta-features.  
@@ -362,6 +362,54 @@ Ordenando las muestras por $\mu(x_i)$, $d$ se obtiene como la pendiente de la ap
 proporcionando una estimación garantizada de la dimensionalidad intrínseca del espacio donde habitan los datasets.
 
 Este procedimiento asegura que las MetaFeatX reflejen la topología del espacio objetivo y puedan ser computadas de manera económica a partir de las meta-features básicas, facilitando tareas de AutoML como inicialización de optimización y transferencia de conocimiento.
+
+
+\subsection{Extracción de Vecinos y Ranking de Pipelines}
+\label{sec:neighbors_ranking}
+
+Una vez aprendidas las meta-features MetaFeatX, estas se utilizan para identificar datasets similares y transferir conocimiento sobre el desempeño de distintos pipelines de AutoML. Esta sección describe las decisiones de diseño adoptadas para (i) la extracción de vecinos, (ii) la agregación del rendimiento histórico y (iii) el ranking final de pipelines.
+
+\paragraph{Extracción de vecinos en el espacio MetaFeatX.}
+Dado un dataset objetivo con identificador $t$, se calcula su representación MetaFeatX $\psi(x_t)$ y se mide su distancia euclidiana a todas las demás tareas del benchmark:
+\[
+d(t, i) = \| \psi(x_t) - \psi(x_i) \|_2.
+\]
+Los $k$ datasets con menor distancia (excluyendo $t$) se seleccionan como vecinos más cercanos. Este procedimiento se repite de manera independiente para cada pipeline considerado (por ejemplo, \texttt{adaboost}, \texttt{random\_forest}, \texttt{libsvm\_svc}), ya que la representación objetivo y el espacio de hiperparámetros dependen del pipeline.
+
+\paragraph{Uso del mejor rendimiento histórico.}
+Para cada vecino $i$ y pipeline $p$, se consulta el benchmark histórico y se extrae el mejor desempeño observado:
+\[
+a_{i}^{(p)} = \max_{\theta \in \Theta_i^{(p)}} \text{accuracy}(i, \theta).
+\]
+Se opta por el \emph{mejor} valor en lugar del promedio del top-$k$ de configuraciones para capturar el potencial máximo del pipeline en datasets similares, reduciendo la influencia de configuraciones subóptimas y alineándose con el objetivo de AutoML de identificar configuraciones de alto rendimiento.
+
+\paragraph{Ponderación exponencial por vecindad.}
+No todos los vecinos aportan la misma cantidad de información. Aquellos más cercanos en el espacio MetaFeatX son más relevantes. Por ello, se emplea una ponderación exponencial decreciente:
+\[
+w_j = \exp(-j), \quad j = 0, \dots, k-1,
+\]
+donde $j$ es la posición del vecino en el ranking por distancia. El score agregado para un pipeline $p$ se define como:
+\[
+S^{(p)} = \frac{\sum_{j=0}^{k-1} w_j \, a_{i_j}^{(p)}}{\sum_{j=0}^{k-1} w_j},
+\]
+donde $i_j$ es el $j$-ésimo vecino más cercano. Esta elección enfatiza la transferencia local y reduce la influencia de datasets lejanos en el espacio de meta-features.
+
+\paragraph{Ranking relativo de pipelines.}
+El score $S^{(p)}$ se calcula para cada pipeline de manera independiente. Finalmente, los pipelines se ordenan de mayor a menor score, produciendo un ranking relativo:
+\[
+p_1 \succ p_2 \succ \dots \succ p_m.
+\]
+Este enfoque basado en ranking evita comparar directamente valores absolutos de desempeño entre datasets, mitigando el sesgo introducido por diferencias intrínsecas de dificultad entre tareas. La comparación se realiza únicamente entre pipelines evaluados bajo el mismo conjunto de vecinos.
+
+\paragraph{Relación con MetaFeatX y AutoML.}
+Este procedimiento es coherente con la filosofía de MetaFeatX: las meta-features aprendidas definen un espacio donde la proximidad refleja similitud en estructuras de rendimiento de hiperparámetros. El ranking resultante puede utilizarse para:
+\begin{itemize}
+    \item priorizar pipelines antes de la optimización,
+    \item inicializar configuraciones en métodos como SMAC,
+    \item o realizar selección de modelos informada por meta-aprendizaje.
+\end{itemize}
+
+En conjunto, el método implementa una forma ligera de transferencia de conocimiento basada en vecinos, que no requiere reentrenar modelos complejos y aprovecha directamente la estructura aprendida por MetaFeatX.
 
 %-------------------------------------------------
 \section{Transfer-Learning de Hiperparámetros}
