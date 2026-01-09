@@ -59,6 +59,7 @@ Thumbs.db
 *.log
 
 LICENSE
+<<<<<<< HEAD
 
 report/*
 !report/matcom.jpeg
@@ -66,3 +67,7 @@ report/*
 !report/ML_Report.tex
 
 data/bootstrap_representations.csv
+=======
+A/
+.cursor/
+>>>>>>> transfer-learning
