@@ -23,6 +23,7 @@ wheels/
 # Virtual environments
 venv/
 env/
+env3.9/
 ENV/
 .venv
 
@@ -59,3 +60,17 @@ Thumbs.db
 *.log
 
 LICENSE
+
+report/*
+!report/*jpeg
+!report/*png
+!report/ML_Report.pdf
+!report/ML_Report.tex
+!report/references.bib
+
+data/bootstrap_representations.csv
+A/
+.cursor/
+
+images/
+outputs/
