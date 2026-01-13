@@ -7,22 +7,6 @@ def mean_top_k_accuracy_per_task(
     task_ids,
     k: int = 20
 ):
-    """
-    Parameters
-    ----------
-    csv_path : str
-        Path to the CSV file
-    task_ids : iterable
-        Collection of task_ids
-    k : int
-        Number of top accuracies to average (default=20)
-
-    Returns
-    -------
-    np.ndarray
-        Array with the mean of top-k accuracies per task_id,
-        in the same order as task_ids
-    """
     df = pd.read_csv(csv_path)
 
     results = []
@@ -39,6 +23,29 @@ def mean_top_k_accuracy_per_task(
 
     return np.array(results)
 
+
+def best_accuracy_per_task(
+    csv_path: str,
+    task_ids
+):
+    """
+    Retorna el MEJOR predictive_accuracy observado por task_id
+    """
+
+    df = pd.read_csv(csv_path)
+    results = []
+
+    for task_id in task_ids:
+        task_rows = df[df["task_id"] == task_id]
+
+        if task_rows.empty:
+            results.append(np.nan)
+            continue
+
+        best_acc = task_rows["predictive_accuracy"].max()
+        results.append(best_acc)
+
+    return np.array(results)
 
 
 def get_neighbors(csv_path: str, task_id):
@@ -71,7 +78,10 @@ def calculate_individual_score(mean_ids):
         return np.nan
     
     L = len(mean_ids)
+    print(f"La cantidad de valores es :{L}")
     weights = np.exp(-np.arange(L))
+    print(f"Los pesos son: {weights}")
+
     return np.sum(weights * mean_ids) / np.sum(weights)
 
 
@@ -92,13 +102,15 @@ def calculate_general_score(all_neighbors,task_id, k=20):
         neighbors = all_neighbors[pipeline][task_id]
 
 
-        means = mean_top_k_accuracy_per_task(
-            csv_path=target_csv,
-            task_ids=neighbors,
-            k=k
-        )
+        # means = mean_top_k_accuracy_per_task(
+        #     csv_path=target_csv,
+        #     task_ids=neighbors,
+        #     k=k
+        # )
 
-        score = calculate_individual_score(mean_ids= means)
+        best = best_accuracy_per_task(csv_path=target_csv, task_ids=neighbors)
+
+        score = calculate_individual_score(mean_ids= best)
 
         scores.append({
                 "pipeline":pipeline,
