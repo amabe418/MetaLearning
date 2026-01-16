@@ -7,6 +7,8 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
 \usepackage{amssymb}
 \usepackage{multirow}
 \usepackage{float}  
@@ -290,11 +292,11 @@ El resultado de este mapeo son las \textbf{meta-features MetaFeatX}, que:
     \caption{
         Configuraciones principales de los datasets A, B y C, donde B (en naranja) (respecto a C, en verde) es el vecino más cercano de A con respecto a la representación objetivo.
     }
-    \label{fig:metabu_top_configurations}
+    \label{fig:metafeatx_top_configurations}
 \end{figure}
 
 
-\textbf{Argumentación del benchmark.}
+\textbf{Augmentación del benchmark.}
 
 Como los benchmarks de AutoML (por ejemplo, OpenML CC-18) contienen relativamente pocos datasets etiquetados con representaciones objetivo, existe riesgo de sobreajuste al aprender las meta-features.  
 MetaFeatX aborda este problema mediante un procedimiento de \emph{bootstrap} \citep{efron1979}, que genera datasets adicionales a partir de los existentes para densificar el espacio de meta-features.  
@@ -302,13 +304,13 @@ Este procedimiento puede incluir la adición de ruido siguiendo una distribució
 
 \subsection{Algoritmo MetaFeatX}
 
-El algoritmo MetaFeatX se entrena sobre $p = 1000 \times n$ datasets de entrenamiento del benchmark, previamente aumentados mediante \emph{bootstrap} (ver sección anterior y Apéndice B). Las meta-features de MetaFeatX se construyen en un ``procedimiento de tres pasos'' ilustrado en la Figura~\ref{fig:metabu_pipeline}.
+El algoritmo MetaFeatX se entrena sobre $p = 1000 \times n$ datasets de entrenamiento del benchmark, previamente aumentados mediante \emph{bootstrap} (ver sección anterior y Apéndice B). Las meta-features de MetaFeatX se construyen en un ``procedimiento de tres pasos'' ilustrado en la Figura~\ref{fig:metafeatx_pipeline}.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=0.9\textwidth]{illustration_metabu.png} % ajusta la ruta de la imagen
+    \includegraphics[width=0.9\textwidth]{ilustracion.png} % ajusta la ruta de la imagen
     \caption{De las meta-features básicas a las MetaFeatX usando Fused Gromov-Wasserstein. Representaciones básicas (círculos), MetaFeatX (cuadrados) y representaciones objetivo (subgráfico izquierdo). Datasets vecinos en el espacio objetivo mantienen el mismo color en todos los subgráficos.}
-    \label{fig:metabu_pipeline}
+    \label{fig:metafeatx_pipeline}
 \end{figure}
 
 \paragraph{Paso 1: Representación objetivo y distancia de Wasserstein.}  
@@ -361,99 +363,743 @@ proporcionando una estimación garantizada de la dimensionalidad intrínseca del
 
 Este procedimiento asegura que las MetaFeatX reflejen la topología del espacio objetivo y puedan ser computadas de manera económica a partir de las meta-features básicas, facilitando tareas de AutoML como inicialización de optimización y transferencia de conocimiento.
 
+
+\subsection{Extracción de Vecinos y Ranking de Pipelines}
+\label{sec:neighbors_ranking}
+
+Una vez aprendidas las meta-features MetaFeatX, estas se utilizan para identificar datasets similares y transferir conocimiento sobre el desempeño de distintos pipelines de AutoML. Esta sección describe las decisiones de diseño adoptadas para (i) la extracción de vecinos, (ii) la agregación del rendimiento histórico y (iii) el ranking final de pipelines.
+
+\paragraph{Extracción de vecinos en el espacio MetaFeatX.}
+Dado un dataset objetivo con identificador $t$, se calcula su representación MetaFeatX $\psi(x_t)$ y se mide su distancia euclidiana a todas las demás tareas del benchmark:
+\[
+d(t, i) = \| \psi(x_t) - \psi(x_i) \|_2.
+\]
+Los $k$ datasets con menor distancia (excluyendo $t$) se seleccionan como vecinos más cercanos. Este procedimiento se repite de manera independiente para cada pipeline considerado (por ejemplo, \texttt{adaboost}, \texttt{random\_forest}, \texttt{libsvm\_svc}), ya que la representación objetivo y el espacio de hiperparámetros dependen del pipeline.
+
+\paragraph{Uso del mejor rendimiento histórico.}
+Para cada vecino $i$ y pipeline $p$, se consulta el benchmark histórico y se extrae el mejor desempeño observado:
+\[
+a_{i}^{(p)} = \max_{\theta \in \Theta_i^{(p)}} \text{accuracy}(i, \theta).
+\]
+Se opta por el \emph{mejor} valor en lugar del promedio del top-$k$ de configuraciones para capturar el potencial máximo del pipeline en datasets similares, reduciendo la influencia de configuraciones subóptimas y alineándose con el objetivo de AutoML de identificar configuraciones de alto rendimiento.
+
+\paragraph{Ponderación exponencial por vecindad.}
+No todos los vecinos aportan la misma cantidad de información. Aquellos más cercanos en el espacio MetaFeatX son más relevantes. Por ello, se emplea una ponderación exponencial decreciente:
+\[
+w_j = \exp(-j), \quad j = 0, \dots, k-1,
+\]
+donde $j$ es la posición del vecino en el ranking por distancia. El score agregado para un pipeline $p$ se define como:
+\[
+S^{(p)} = \frac{\sum_{j=0}^{k-1} w_j \, a_{i_j}^{(p)}}{\sum_{j=0}^{k-1} w_j},
+\]
+donde $i_j$ es el $j$-ésimo vecino más cercano. Esta elección enfatiza la transferencia local y reduce la influencia de datasets lejanos en el espacio de meta-features.
+
+\paragraph{Ranking relativo de pipelines.}
+El score $S^{(p)}$ se calcula para cada pipeline de manera independiente. Finalmente, los pipelines se ordenan de mayor a menor score, produciendo un ranking relativo:
+\[
+p_1 \succ p_2 \succ \dots \succ p_m.
+\]
+Este enfoque basado en ranking evita comparar directamente valores absolutos de desempeño entre datasets, mitigando el sesgo introducido por diferencias intrínsecas de dificultad entre tareas. La comparación se realiza únicamente entre pipelines evaluados bajo el mismo conjunto de vecinos.
+
+\paragraph{Relación con MetaFeatX y AutoML.}
+Este procedimiento es coherente con la filosofía de MetaFeatX: las meta-features aprendidas definen un espacio donde la proximidad refleja similitud en estructuras de rendimiento de hiperparámetros. El ranking resultante puede utilizarse para:
+\begin{itemize}
+    \item priorizar pipelines antes de la optimización,
+    \item inicializar configuraciones en métodos como SMAC,
+    \item o realizar selección de modelos informada por meta-aprendizaje.
+\end{itemize}
+
+En conjunto, el método implementa una forma ligera de transferencia de conocimiento basada en vecinos, que no requiere reentrenar modelos complejos y aprovecha directamente la estructura aprendida por MetaFeatX.
+
+%-------------------------------------------------
 %-------------------------------------------------
 \section{Transfer-Learning de Hiperparámetros}
 \label{sec:transfer}
 
+El sistema \textbf{FSBO} (Few-Shot Bayesian Optimization) representa un enfoque avanzado de transfer-learning para la optimización de hiperparámetros (HPO) en el contexto de AutoML. Su objetivo principal es aprovechar el conocimiento adquirido en múltiples tareas previas para acelerar y mejorar la búsqueda de configuraciones óptimas en nuevas tareas, mitigando así el problema de \emph{cold-start} característico de los sistemas AutoML tradicionales.
+
+\subsection{Fundamentos Teóricos de FSBO}
+
+\subsubsection{Bayesian Optimization con Deep Kernel Learning}
+
+La optimización bayesiana (BO) constituye un paradigma efectivo para la optimización de funciones costosas de evaluar. Tradicionalmente, BO combina un modelo \emph{surrogate} (típicamente un proceso gaussiano, GP) con una función de adquisición que guía la exploración del espacio de búsqueda. Sin embargo, los GPs estándar con kernels convencionales (RBF, Matérn) asumen que puntos cercanos en el espacio de entrada tendrán valores de rendimiento similares, una suposición que no siempre se cumple en espacios de hiperparámetros complejos.
+
+FSBO supera esta limitación mediante \textbf{Deep Kernel Learning}, donde se aprende una transformación no lineal de los hiperparámetros a un espacio latente donde la suposición de suavidad sí es válida. Formalmente, el kernel profundo se define como:
+
+\begin{equation}
+    k_\theta(\mathbf{x}, \mathbf{x}') = k(\phi_\theta(\mathbf{x}), \phi_\theta(\mathbf{x}'))
+\end{equation}
+
+donde $\phi_\theta: \mathbb{R}^d \rightarrow \mathbb{R}^{h}$ es una red neuronal (denominada \emph{DeepKernelNetwork}) que proyecta los hiperparámetros $\mathbf{x}$ a un espacio latente de dimensión $h=128$, y $k$ es un kernel RBF estándar que opera en dicho espacio. Esta arquitectura permite capturar relaciones complejas y no lineales entre hiperparámetros y rendimiento que serían inaccesibles para un kernel tradicional.
+
+\subsubsection{Arquitectura del Modelo}
+
+El modelo FSBO se compone de dos módulos principales:
+
+\begin{enumerate}
+    \item \textbf{DeepKernelNetwork (DKN)}: Una red neuronal feed-forward con dos capas ocultas de 128 unidades cada una, función de activación ReLU, que transforma hiperparámetros normalizados a un espacio latente de 128 dimensiones.
+    
+    \item \textbf{DeepKernelGP (DKGP)}: Un proceso gaussiano exacto que utiliza como función de covarianza un kernel RBF con determinación automática de relevancia (ARD) aplicado sobre las representaciones latentes producidas por la DKN. La función de media se modela como una constante aprendida.
+\end{enumerate}
+
+El entrenamiento del modelo se realiza maximizando la log-verosimilitud marginal sobre un conjunto diverso de tareas, implementando así un esquema de \emph{meta-learning}. Durante este proceso, se emplea \emph{task augmentation} para mejorar la robustez del modelo: las métricas de rendimiento se reescalan aleatoriamente a diferentes intervalos, forzando al modelo a aprender relaciones entre hiperparámetros y rendimiento relativo en lugar de memorizar valores absolutos.
+
+\subsection{Implementación del Sistema}
+
+\subsubsection{Estructura del Proyecto}
+
+La implementación de FSBO sigue una arquitectura modular organizada en los siguientes componentes principales:
+
+\begin{itemize}
+    \item \textbf{Entrenamiento} (\texttt{train\_fsbo.py}): Realiza el meta-entrenamiento del Deep Kernel GP utilizando datos históricos. Incluye mecanismos de aumentación de tareas y validación cruzada a nivel de tareas.
+    
+    \item \textbf{Optimizador} (\texttt{fsbo\_optimizer.py}): Provee una API con métodos \texttt{observe()} y \texttt{suggest()} que encapsulan la lógica de BO adaptativa con fine-tuning periódico. Esta clase permite cargar modelos pre-entrenados y utilizarlos para nuevas tareas.
+    
+    \item \textbf{Generación de datos sintéticos} (\texttt{generate\_synthetic\_scores.py}): Dado que los datos originales solo contenían configuraciones de hiperparámetros sin métricas de rendimiento, este componente genera scores sintéticos realistas simulando superficies de respuesta que combinan componentes lineales y no lineales con ruido gaussiano.
+    
+    \item \textbf{Framework experimental} (\texttt{experiments.py}): Implementa protocolos rigurosos de evaluación incluyendo validación cruzada K-fold a nivel de tareas, múltiples semillas aleatorias y comparaciones estadísticas.
+    
+    \item \textbf{Métricas y baselines} (\texttt{metrics.py}, \texttt{baselines.py}): Define métricas estandarizadas como el \emph{Normalized Regret} e implementa métodos de comparación como Random Search y GP con inicialización aleatoria.
+    
+    \item \textbf{Visualización} (\texttt{visualize.py}): Genera gráficos de convergencia, box plots y tablas en formato LaTeX para análisis y reportes.
+\end{itemize}
+
+\subsubsection{Formato de Datos y Espacios de Búsqueda}
+
+El sistema utiliza dos tipos principales de archivos de configuración:
+
+\begin{enumerate}
+    \item \textbf{Archivos ConfigSpace (JSON)}: Definen los espacios de búsqueda para cada algoritmo, especificando hiperparámetros, sus tipos (continuos, enteros, categóricos), rangos válidos y transformaciones. Por ejemplo, el espacio para AdaBoost incluye 5 hiperparámetros, mientras que AutoSklearn maneja aproximadamente 150 parámetros.
+    
+    \item \textbf{Archivos CSV de entrenamiento}: Contienen evaluaciones históricas organizadas por \texttt{task\_id}, con hiperparámetros normalizados (usando z-score), variables categóricas codificadas en one-hot, y la métrica de rendimiento (accuracy sintética en el rango [0.5, 1.0]).
+\end{enumerate}
+
+La normalización de hiperparámetros es esencial para el funcionamiento de la red neuronal, asegurando que todos los parámetros contribuyan equitativamente al aprendizaje independientemente de sus escalas originales.
+
+\subsubsection{Flujo de Datos Completo}
+
+El procesamiento de datos sigue una pipeline bien definida:
+
+\begin{enumerate}
+    \item \textbf{Datos iniciales}: Archivos CSV con configuraciones de hiperparámetros sin scores (\texttt{data/representation/})
+    \item \textbf{Generación de scores}: Se añaden métricas sintéticas realistas (\texttt{data/representation\_with\_scores/})
+    \item \textbf{Entrenamiento meta}: Se entrenan modelos FSBO para cada algoritmo (\texttt{experiments/checkpoints/})
+    \item \textbf{Evaluación experimental}: Ejecución de protocolos K-fold con múltiples semillas (\texttt{experiments/results/})
+    \item \textbf{Análisis y visualización}: Generación de gráficos y tablas de resultados (\texttt{experiments/figures/})
+\end{enumerate}
+
+\subsection{Integración en el Pipeline de AutoML}
+
+FSBO se integra como el componente de optimización de hiperparámetros dentro del sistema de meta-learning propuesto. Su funcionamiento sigue el siguiente flujo:
+
+\begin{enumerate}
+    \item \textbf{Entrenamiento fuera de línea}: El modelo FSBO se entrena mediante meta-learning utilizando datos históricos de múltiples datasets y algoritmos (AdaBoost, Random Forest, SVM, AutoSklearn). Cada tarea de entrenamiento corresponde a un dataset específico con sus configuraciones de hiperparámetros evaluadas y sus métricas de rendimiento asociadas.
+    
+    \item \textbf{Inicialización inteligente (warm-start)}: Para un nuevo dataset, el módulo de meta-learning (MetaFeatX) identifica los algoritmos más prometedores. FSBO entonces genera configuraciones iniciales no aleatorias, sino basadas en su conocimiento previo: muestrea un conjunto de candidatos, predice sus rendimientos usando el modelo pre-entrenado, y selecciona aquellas configuraciones con alto rendimiento esperado y alta diversidad entre sí.
+    
+    \item \textbf{Bucle de optimización adaptativa}: Tras la evaluación de las configuraciones iniciales, FSBO entra en un ciclo iterativo donde:
+    \begin{itemize}
+        \item La función de adquisición \emph{Expected Improvement} (EI) identifica la siguiente configuración más prometedora a evaluar, balanceando exploración y explotación.
+        \item Cada nueva observación $(configuracion, rendimiento)$ se incorpora al conjunto de datos de la tarea actual.
+        \item Periódicamente (cada 5 observaciones), se realiza \emph{fine-tuning} del modelo sobre los datos específicos de la nueva tarea, ajustando ligeramente los parámetros del deep kernel para adaptarse a las particularidades del dataset actual sin perder el conocimiento transferido.
+    \end{itemize}
+    
+    \item \textbf{Transferencia de conocimiento}: El conocimiento encapsulado en el deep kernel pre-entrenado permite que FSBO realice predicciones más informadas desde las primeras iteraciones, reduciendo significativamente el número de evaluaciones necesarias para alcanzar configuraciones de alto rendimiento comparado con métodos que parten de cero.
+\end{enumerate}
+
+\subsection{Protocolo Experimental y Resultados}
+
+\subsubsection{Configuración Experimental}
+
+La evaluación de FSBO se realizó siguiendo un protocolo riguroso:
+
+\begin{itemize}
+    \item \textbf{Validación cruzada}: Esquema K-fold (K=5) a nivel de tareas, asegurando que los modelos se evalúen en tareas no vistas durante el entrenamiento meta.
+    \item \textbf{Réplicas}: 3 semillas aleatorias por tarea para obtener resultados estadísticamente robustos.
+    \item \textbf{Presupuesto evaluativo}: 30 evaluaciones por experimento (5 iniciales + 25 iteraciones de BO).
+    \item \textbf{Algoritmos evaluados}: AdaBoost, Random Forest, LibSVM SVC, y el pipeline completo de AutoSklearn.
+    \item \textbf{Métodos comparados}: FSBO vs. Random Search vs. GP con inicialización aleatoria (GP-RS).
+    \item \textbf{Métrica principal}: Normalized Regret (NR), que mapea el rendimiento al intervalo [0,1] donde 0 corresponde al óptimo y 1 al peor rendimiento posible.
+\end{itemize}
+
+\subsubsection{Resultados Obtenidos}
+
+\begin{table}[H]
+\centering
+\caption{Resultados de Normalized Regret (media ± desviación estándar)}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Algoritmo} & \textbf{FSBO} & \textbf{Random Search} & \textbf{GP-RS} \\
+\midrule
+AdaBoost & 0.189 ± 0.149 & 0.195 ± 0.149 & 0.197 ± 0.154 \\
+Random Forest & \textbf{0.230 ± 0.139} & 0.253 ± 0.149 & 0.259 ± 0.149 \\
+LibSVM SVC & \textbf{0.196 ± 0.137} & 0.217 ± 0.144 & 0.200 ± 0.138 \\
+AutoSklearn & 0.332 ± 0.201 & 0.341 ± 0.201 & 0.334 ± 0.186 \\
+\bottomrule
+\end{tabular}
+\label{tab:fsbo_results}
+\end{table}
+
+
+\subsubsection{Conclusión del Módulo}
+
+En resumen, el módulo de transfer-learning de hiperparámetros basado en FSBO proporciona un componente crítico para el sistema de AutoML propuesto. Al combinar la capacidad de meta-learning para extraer conocimiento generalizable de experiencias previas con la eficiencia de Bayesian Optimization adaptada mediante deep kernels, se logra un equilibrio efectivo entre eficiencia computacional, calidad de soluciones y generalización a nuevas tareas. Esta integración representa un paso importante hacia sistemas de AutoML verdaderamente automáticos que puedan aprender de experiencias pasadas para acelerar la optimización en problemas futuros.
+
 %-------------------------------------------------
 \section{Experimentación}
+\label{sec:experimentation}
 
-La experimentaci\'on en este trabajo se organiza en torno a tres objetivos principales: Validar si las meta-caracter\'isticas aprendidas por METABU capturan adecuadamente la topolog\'ia ``verdadera'' inducida por las configuraciones de hiperpar\'ametros; evaluar su utilidad pr\'actica para AutoML, tanto sin como con modelo de rendimiento; y analizar la sensibilidad del m\'etodo y extraer informaci\'on sobre la estructura del espacio de conjuntos de datos y los ``nichos'' de distintos algoritmos.  La experimentaci\'on se fundamenta en la idea de que unas buenas meta-caracter\'isticas deben inducir una m\'etrica sobre el espacio de conjuntos de datos tal que la cercan\'ia entre conjuntos de datos signifique tambi\'en similitud en los conjuntos de configuraciones de hiperpar\'ametros que proporcionan buen rendimiento.
+Esta sección presenta la evaluación experimental exhaustiva del sistema de meta-learning propuesto, organizada en tres fases principales que abarcan desde la validación del módulo MetaFeatX hasta la evaluación del sistema completo integrando transfer-learning de hiperparámetros mediante FSBO. El protocolo experimental sigue rigurosos estándares de reproducibilidad y validez estadística, empleando validación cruzada K-fold sobre tareas y múltiples semillas aleatorias.
 
-Esta noci\'on se formaliza mediante representaciones objetivo de cada conjunto de datos como distribuciones discretas sobre configuraciones de hiperpar\'ametros de alto rendimiento, y distancias de Wasserstein y Gromov-Wasserstein entre dichas distribuciones.  Desde este punto de vista, el prop\'osito de la experimentaci\'on es triple: (1) comprobar si la distancia eucl\'idea en el espacio de meta-caracter\'isticas METABU aproxima bien la distancia de Wasserstein entre representaciones objetivo; (2) verificar si esta m\'etrica permite dise\~nar estrategias de muestreo inicial de configuraciones m\'as eficaces que los meta-features manuales cl\'asicos (AutoSklearn, Landmark, SCOT) o el muestreo uniforme; y (3) estudiar, a partir de las meta-caracter\'isticas aprendidas, la dimensi\'on intr\'inseca del espacio de conjuntos de datos y la importancia relativa de distintas meta-caracter\'isticas humanas para varios algoritmos.
+\subsection{Configuración Experimental}
 
-\subsection{Configuraci\'on experimental y tareas}
+\subsubsection{Protocolo de Validación Cruzada sobre Tareas}
 
-El banco de pruebas es la suite OpenML CC-18 de clasificaci\'on tabular, con 72 conjuntos de datos, de los cuales 64 disponen de informaci\'on suficiente para construir la representaci\'on objetivo a partir de configuraciones evaluadas.  Para evitar sobreajuste dada la escasez de conjuntos de datos, los autores ampl\'ian la colecci\'on mediante \emph{bootstrap}: para cada conjunto de datos original se generan 1000 versiones remuestreadas con reemplazo, calculando de nuevo las meta-caracter\'isticas b\'asicas pero heredando la misma representaci\'on objetivo, lo que densifica el espacio de meta-features sin distorsionar la estructura de rendimiento.
+A diferencia de la validación cruzada tradicional que divide muestras individuales, en meta-learning implementamos \textbf{K-Fold Cross-Validation sobre tareas}, donde cada fold corresponde a un conjunto de datasets completos. Este enfoque simula de manera más realista el escenario de aplicación donde el sistema debe generalizar a datasets completamente nuevos no vistos durante el entrenamiento.
 
-Sobre esta base, se definen tres tareas experimentales, todas validadas con un esquema \emph{leave-one-out} sobre los 64 conjuntos de datos con representaci\'on objetivo.  La primera tarea eval\'ua la capacidad de capturar la topolog\'ia objetivo; la segunda estudia el comportamiento de AutoML sin modelo de rendimiento expl\'icito, en un escenario de inicializaci\'on basada en vecindario; y la tercera analiza el uso de las meta-caracter\'isticas como mecanismo de inicializaci\'on para sistemas AutoML con modelo de rendimiento, concretamente AutoSklearn y Probabilistic Matrix Factorization (PMF).
+Para el benchmark OpenML CC-18 con $N = 64$ datasets con representación objetivo completa, implementamos:
+\begin{equation}
+    K = 5 \text{ folds} \rightarrow \text{cada fold contiene aproximadamente 13 tareas}
+\end{equation}
 
-\subsubsection{Tarea 1: Captura de la topolog\'ia objetivo}
+En cada iteración $k \in \{1, ..., K\}$:
+\begin{itemize}
+    \item \textbf{Conjunto de entrenamiento}: Tareas de todos los folds excepto $k$ (aproximadamente 51 tareas)
+    \item \textbf{Conjunto de prueba}: Tareas del fold $k$ (aproximadamente 13 tareas)
+\end{itemize}
 
-En la primera tarea, el objetivo es cuantificar hasta qu\'e punto el vecindario de un conjunto de datos en el espacio de meta-caracter\'isticas METABU coincide con su vecindario real en el espacio de distribuciones de configuraciones de alto rendimiento.  Para cada conjunto de datos de prueba se calcula, por un lado, la lista ordenada de vecinos m\'as cercanos seg\'un la distancia de Wasserstein entre sus representaciones objetivo, y, por otro, la lista de vecinos seg\'un la distancia eucl\'idea en el espacio de meta-caracter\'isticas METABU y en los espacios de referencia (AutoSklearn, Landmark, SCOT).
+Esta división garantiza que el modelo nunca vea las tareas de prueba durante el entrenamiento meta, proporcionando una evaluación realista de su capacidad de generalización.
 
-La similitud entre ambas listas se mide mediante la m\'etrica NDCG@k (normalized discounted cumulative gain) sobre los primeros k vecinos, con valores de k entre 5 y 35, y se considera como indicador el NDCG@k medio sobre todos los conjuntos de datos de prueba.  Te\'oricamente, un valor elevado de NDCG indica que la m\'etrica inducida por las meta-caracter\'isticas preserva la estructura de vecindad que es relevante para AutoML, es decir, la inducida por el comportamiento de las configuraciones de hiperpar\'ametros sobre los distintos conjuntos de datos.
+\subsubsection{Configuración Experimental Detallada}
 
-\begin{figure}[h]
+\begin{table}[H]
+\centering
+\caption{Configuración experimental completa del sistema de evaluación}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parámetro} & \textbf{Valor} \\
+\midrule
+K-Folds (sobre tareas) & 5 \\
+Semillas aleatorias por tarea & 3 \\
+Presupuesto evaluativo por experimento & 30 evaluaciones \\
+Configuraciones iniciales (warm-start) & 5 \\
+Algoritmos evaluados & 4 (AdaBoost, Random Forest, LibSVM\_SVC, AutoSklearn) \\
+Métodos comparados en HPO & 3 (FSBO, Random Search, GP-RS) \\
+Métodos comparados en meta-características & 4 (MetaFeatX, AutoSklearn, Landmark, SCOT) \\
+\hline
+\textbf{Experimentos totales de HPO} & $\mathbf{4 \times 64 \times 3 \times 3 = 2,304}$ \\
+\textbf{Experimentos totales de meta-características} & $\mathbf{4 \times 64 = 256}$ \\
+\bottomrule
+\end{tabular}
+\label{tab:exp_config_completa}
+\end{table}
+
+El banco de pruebas es la suite OpenML CC-18 de clasificación tabular, que incluye 72 conjuntos de datos, de los cuales 64 disponen de información suficiente para construir la representación objetivo a partir de configuraciones evaluadas. Para evitar sobreajuste dada la escasez relativa de conjuntos de datos, implementamos un procedimiento de \emph{bootstrap}: para cada dataset original se generan 1,000 versiones remuestreadas con reemplazo, recalculando las meta-características básicas pero heredando la misma representación objetivo. Este procedimiento densifica el espacio de meta-características sin introducir distorsiones artificiales en la estructura de rendimiento.
+
+\subsubsection{Métricas de Evaluación Estándar}
+
+Para cuantificar el rendimiento de manera comparable con la literatura de HPO y meta-learning, empleamos las siguientes métricas estandarizadas:
+
+\begin{itemize}
+    \item \textbf{Normalized Regret (NR)}: Métrica principal que normaliza el rendimiento al intervalo $[0,1]$, donde 0 representa el óptimo perfecto y 1 el peor rendimiento posible:
+    \begin{equation}
+        \text{NR} = \frac{y^* - y_{\text{best}}}{y^* - y_{\text{worst}}}
+    \end{equation}
+    Donde $y^*$ es el valor óptimo conocido de la tarea, $y_{\text{best}}$ es el mejor valor encontrado por el método, y $y_{\text{worst}}$ es el peor valor posible.
+    
+    \item \textbf{Area Under Curve (AUC)}: Mide la eficiencia de convergencia calculando el rendimiento promedio acumulado a lo largo de todas las evaluaciones:
+    \begin{equation}
+        \text{AUC} = \frac{1}{T} \sum_{t=1}^{T} y_{\text{best}}^{(t)}
+    \end{equation}
+    Donde $T$ es el número total de evaluaciones (30 en nuestros experimentos).
+    
+    \item \textbf{Time to 95\% Optimal}: Número de evaluaciones necesarias para alcanzar al menos el 95\% del valor óptimo conocido, proporcionando una medida de velocidad de convergencia.
+    
+    \item \textbf{NDCG@k (Normalized Discounted Cumulative Gain)}: Utilizada específicamente para evaluar meta-características, mide la similitud entre el vecindario inducido por las meta-características y el vecindario real basado en distribuciones de configuraciones de alto rendimiento.
+\end{itemize}
+
+\subsubsection{Métodos Comparados}
+
+La evaluación comparativa incluye múltiples baselines establecidos en la literatura:
+
+\begin{enumerate}
+    \item \textbf{FSBO (Few-Shot Bayesian Optimization)}: Nuestro método propuesto que combina Deep Kernel Learning con meta-learning para transferir conocimiento entre tareas. Implementa un proceso gaussiano con kernel profundo pre-entrenado en múltiples tareas, task augmentation para robustez a escala, y fine-tuning adaptativo en nuevas tareas.
+    
+    \item \textbf{Random Search}: Baseline fundamental establecido por Bergstra \& Bengio (2012), que muestrea configuraciones uniformemente del espacio de hiperparámetros. Sorprendentemente efectivo y difícil de superar, sirve como referencia mínima de rendimiento.
+    
+    \item \textbf{GP-RS (Gaussian Process con Random Sampling)}: Proceso gaussiano tradicional con kernel RBF, inicializado con muestreo aleatorio. Representa el enfoque clásico de Bayesian Optimization sin transfer learning, permitiendo aislar el beneficio del conocimiento previo.
+    
+    \item \textbf{Meta-características de referencia}: Para evaluar MetaFeatX, comparamos con conjuntos establecidos de meta-características: AutoSklearn (conjunto utilizado por Auto-Sklearn), Landmark (rendimiento de clasificadores simples), y SCOT (meta-características estadísticas y geométricas).
+\end{enumerate}
+
+\subsection{Resultados de MetaFeatX en Captura de Topología}
+
+Antes de evaluar el sistema completo, validamos la efectividad del módulo MetaFeatX para capturar la topología relevante del espacio de datasets. La Figura \ref{fig:task1} muestra los resultados de la Tarea 1, donde MetaFeatX supera consistentemente a todos los conjuntos de meta-características de referencia en la métrica NDCG@k para todos los valores de $k$ entre 5 y 35.
+
+\begin{figure}[H]
     \centering
-    % Reemplazar "fig_task1" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task1.png}
-    \caption{}
+    \includegraphics[width=1.0\textwidth]{task1.png}
+    \caption{Captura de la topología objetivo: Similaridad NDCG@k entre el vecindario inducido por las meta-características y el vecindario real basado en distribuciones de configuraciones de alto rendimiento. MetaFeatX (línea azul) muestra superioridad consistente sobre los métodos de referencia.}
     \label{fig:task1}
 \end{figure}
 
-\subsubsection{Tarea 2: AutoML sin modelo de rendimiento}
+Los resultados cuantitativos revelan que:
+\begin{itemize}
+    \item MetaFeatX alcanza valores NDCG@10 de aproximadamente 0.85, comparado con 0.78-0.82 para los métodos de referencia.
+    \item La ventaja de MetaFeatX aumenta con $k$, alcanzando diferencias mayores a 0.10 en NDCG@35.
+    \item Aunque MetaFeatX muestra mayor varianza debido a su naturaleza entrenable (en contraste con las meta-características determinísticas de referencia), su rendimiento promedio es significativamente superior.
+\end{itemize}
 
-En la segunda tarea se eval\'ua la capacidad de METABU para guiar el muestreo inicial de configuraciones sin recurrir a un modelo de rendimiento expl\'icito, en un escenario puramente basado en la informaci\'on de vecindario.  Para cada conjunto de datos de prueba y para cada conjunto de meta-caracter\'isticas (METABU, AutoSklearn, Landmark, SCOT) se define una distribuci\'on sobre configuraciones, denotada $\hat{z}^{mf}$, calculada como mezcla ponderada de las distribuciones objetivo de los diez vecinos m\'as cercanos en el espacio correspondiente, ponderando cada vecino con un peso decreciente $e^{-\ell}$ seg\'un su orden y normalizando para obtener una distribuci\'on de probabilidad.
+Estos resultados confirman que las meta-características aprendidas por MetaFeatX capturan efectivamente la estructura del espacio de problemas relevante para AutoML, estableciendo una base sólida para su uso en la inicialización inteligente del componente de optimización de hiperparámetros.
 
-A partir de $\hat{z}^{mf}$, se muestrean iterativamente configuraciones de hiperpar\'ametros, se entrena el modelo con un presupuesto de 15 minutos de CPU y menos de 8 GB de memoria, y se registra el rendimiento de la mejor configuraci\'on encontrada hasta el instante $t$.  Para cada $t$, se ordenan los distintos conjuntos de meta-caracter\'isticas, junto con un muestreador uniforme de referencia, seg\'un el rendimiento obtenido, produciendo una curva de rango $r(t, mf)$ promediada sobre todos los conjuntos de datos, lo que permite evaluar la eficacia de cada m\'etrica a la hora de explotar la informaci\'on de experiencias previas sin aprendizaje adaptativo sobre el problema actual.
-\begin{figure}[h]
+\subsection{AutoML sin Modelo de Rendimiento (Tarea 2)}
+
+La Tarea 2 evalúa la capacidad de MetaFeatX para guiar el muestreo inicial de configuraciones de hiperparámetros sin recurrir a un modelo de rendimiento explícito, utilizando únicamente información de vecindario. Para cada dataset de prueba, se define una distribución sobre configuraciones $\hat{z}^{mf}$ calculada como mezcla ponderada de las distribuciones objetivo de los diez vecinos más cercanos en el espacio de meta-características correspondiente:
+
+\begin{equation}
+    \hat{z}^{mf} = \frac{1}{Z} \sum_{\ell=1}^{10} \exp(-\ell) z^\ell
+\end{equation}
+
+donde $z^\ell$ es la representación objetivo del $\ell$-ésimo vecino más cercano y $Z$ es una constante de normalización.
+
+\begin{figure}[H]
     \centering
-    % Reemplazar "fig_task2" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task2.png}
-    \caption{}
+    \includegraphics[width=1.0\textwidth]{task2.png}
+    \caption{AutoML sin modelo de rendimiento: Curvas de rango promedio $r(t, mf)$ sobre todos los conjuntos de datos de prueba. MetaFeatX (línea azul) muestra el mejor desempeño, especialmente después de las primeras iteraciones.}
     \label{fig:task2}
 \end{figure}
 
-\subsubsection{Tarea 3: AutoML con modelo de rendimiento}
+Los resultados de la Figura \ref{fig:task2} muestran que:
+\begin{itemize}
+    \item Para RandomForest, las meta-características SCOT resultan competitivas en las primeras 3-4 iteraciones, pero MetaFeatX domina claramente en fases posteriores.
+    \item Para AdaBoost, las meta-características de AutoSklearn ofrecen ventajas mínimas en las primeras configuraciones, pero MetaFeatX se vuelve significativamente mejor después.
+    \item Para SVM, MetaFeatX supera consistentemente a todas las alternativas a lo largo de toda la búsqueda.
+    \item En todos los casos, los métodos basados en meta-características superan al muestreador uniforme Random1x, confirmando que aportan información útil más allá de la aleatoriedad.
+\end{itemize}
 
-La tercera tarea estudia el papel de las meta-caracter\'isticas como mecanismo de inicializaci\'on de sistemas de AutoML basados en modelos de rendimiento, en particular AutoSklearn y PMF.  En estos sistemas, la b\'usqueda de configuraciones se realiza de forma adaptativa: el m\'etodo selecciona sucesivamente configuraciones, observa su rendimiento y actualiza un modelo probabil\'istico que orienta las decisiones posteriores de muestreo.
+\subsection{Resultados del Sistema Integrado con FSBO}
 
-En este caso, las meta-caracter\'isticas se utilizan para seleccionar un conjunto inicial de configuraciones prometedoras.  En AutoSklearn, se toman las mejores configuraciones observadas en los diez vecinos m\'as cercanos del conjunto de datos, seg\'un la m\'etrica en el espacio de meta-caracter\'isticas, y se eval\'uan en el conjunto de datos objetivo para alimentar el modelo de rendimiento inicial sobre el que se ejecuta la optimizaci\'on bayesiana.  En PMF, se realiza un procedimiento an\'alogo con cinco vecinos, usando sus mejores configuraciones para rellenar parcialmente la fila correspondiente al conjunto de datos en la matriz de rendimientos y as\'i inicializar su representaci\'on latente.
+\subsubsection{Desempeño Global en Optimización de Hiperparámetros}
 
-A partir de esta fase de inicializaci\'on, el sistema contin\'ua su b\'usqueda est\'andar y el rendimiento se resume mediante curvas de rango en funci\'on del n\'umero de iteraciones, comparando versiones originales de AutoSklearn y PMF con sus variantes h\'ibridas METABU+AutoSklearn y METABU+PMF, as\'i como con muestreadores uniformes reforzados que seleccionan el mejor de varios candidatos aleatorios por iteraci\'on.
+La Tabla \ref{tab:global_results} presenta los resultados agregados del sistema completo, integrando MetaFeatX para identificación de algoritmos prometedores y FSBO para optimización eficiente de hiperparámetros.
 
-\begin{figure}[h]
+\begin{table}[H]
+\centering
+\caption{Resultados globales del sistema integrado (5-Fold CV, 3 semillas)}
+\label{tab:global_results}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Algoritmo} & \textbf{Método} & \textbf{NR (↓)} & \textbf{AUC (↑)} & \textbf{Time to 95\%} \\
+\midrule
+\multirow{3}{*}{\textbf{AdaBoost}} 
+    & \textbf{FSBO} & \textbf{0.189 ± 0.149} & \textbf{0.745} & 7.0 \\
+    & Random Search & 0.195 ± 0.149 & 0.724 & 7.0 \\
+    & GP-RS & 0.197 ± 0.154 & 0.727 & 8.3 \\
+\midrule
+\multirow{3}{*}{\textbf{Random Forest}} 
+    & \textbf{FSBO} & \textbf{0.230 ± 0.139} & \textbf{0.701} & 7.5 \\
+    & Random Search & 0.253 ± 0.149 & 0.677 & 8.0 \\
+    & GP-RS & 0.259 ± 0.149 & 0.679 & 6.9 \\
+\midrule
+\multirow{3}{*}{\textbf{LibSVM\_SVC}} 
+    & \textbf{FSBO} & \textbf{0.196 ± 0.137} & \textbf{0.736} & 6.7 \\
+    & Random Search & 0.217 ± 0.144 & 0.716 & 6.7 \\
+    & GP-RS & 0.200 ± 0.138 & 0.725 & 7.3 \\
+\midrule
+\multirow{3}{*}{\textbf{AutoSklearn}} 
+    & \textbf{FSBO} & \textbf{0.332 ± 0.201} & \textbf{0.617} & 5.2 \\
+    & Random Search & 0.341 ± 0.201 & 0.609 & 6.8 \\
+    & GP-RS & 0.334 ± 0.186 & 0.612 & 5.6 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\subsubsection{Análisis Detallado por Algoritmo}
+
+\textbf{AdaBoost}: FSBO obtiene el mejor Normalized Regret (0.189) aunque la diferencia no alcanza significancia estadística según el test de Friedman ($p = 0.477$). Sin embargo, en términos de AUC (eficiencia de convergencia), FSBO es significativamente superior ($p < 0.001$ vs Random Search, $p = 0.006$ vs GP-RS), indicando que alcanza buenas configuraciones más rápidamente.
+
+\textbf{Random Forest}: FSBO demuestra su mayor ventaja con una mejora estadísticamente significativa (Friedman $p < 0.001$). La reducción en Normalized Regret es del 9.1\% respecto a Random Search ($p = 0.0015$) y del 11.1\% respecto a GP-RS ($p = 0.0004$). El test post-hoc de Nemenyi sitúa a FSBO en primer lugar con ranking promedio de 1.80, seguido de Random Search (2.05) y GP-RS (2.14).
+
+\textbf{LibSVM\_SVC}: FSBO obtiene el mejor rendimiento con significancia estadística (Friedman $p = 0.038$), mostrando una mejora del 9.5\% sobre Random Search ($p = 0.005$). La comparación con GP-RS no muestra diferencia significativa ($p = 0.605$), sugiriendo que ambos métodos funcionan de manera similar para SVM.
+
+\textbf{AutoSklearn}: En el espacio más complejo de AutoSklearn (~150 hiperparámetros), FSBO mantiene una ligera ventaja pero sin alcanzar significancia estadística (Friedman $p = 0.469$). Los valores de NR son consistentemente más altos para todos los métodos, reflejando la mayor dificultad de este espacio de búsqueda.
+
+\subsection{Análisis de Curvas de Convergencia}
+
+La Figura \ref{fig:convergence} muestra las curvas de convergencia para AdaBoost, ilustrando claramente las ventajas temporales de FSBO.
+
+\begin{figure}[H]
     \centering
-    % Reemplazar "fig_task3" por el nombre real del archivo de la figura
-    \includegraphics[width=0.7\textwidth]{task3.png}
-    \caption{}
+    \includegraphics[width=0.9\textwidth]{../transfer-learning/experiments/figures/convergence_adaboost.png}
+    \caption{Curvas de convergencia para AdaBoost. FSBO (línea roja) converge más rápidamente que los baselines, alcanzando mejores valores en las primeras evaluaciones. Las bandas representan ±1 desviación estándar sobre 192 experimentos.}
+    \label{fig:convergence}
+\end{figure}
+
+Observaciones clave de las curvas de convergencia:
+\begin{enumerate}
+    \item \textbf{Inicio superior inmediato}: FSBO comienza con un accuracy de 0.754 comparado con 0.739 para los baselines, gracias al \emph{warm-start} informado por el modelo pre-entrenado.
+    \item \textbf{Convergencia acelerada}: FSBO alcanza un accuracy de 0.80 en aproximadamente 5 evaluaciones, mientras que Random Search y GP-RS requieren 7 evaluaciones.
+    \item \textbf{Mejora continua}: Aunque todos los métodos convergen a valores similares (~0.81) después de 30 evaluaciones, FSBO mantiene una ventaja constante a lo largo del proceso.
+    \item \textbf{Varianza reducida}: Las bandas de confianza de FSBO son consistentemente más estrechas, indicando un comportamiento más estable y predecible.
+\end{enumerate}
+
+La Figura \ref{fig:regret} complementa este análisis mostrando la evolución temporal del Normalized Regret, donde FSBO reduce el regret más rápidamente, especialmente durante las primeras 10 evaluaciones.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{../transfer-learning/experiments/figures/regret_adaboost.png}
+    \caption{Evolución del Normalized Regret para AdaBoost. Menor es mejor. FSBO muestra una disminución más rápida del regret, particularmente en las primeras 10 evaluaciones.}
+    \label{fig:regret}
+\end{figure}
+
+\subsection{Análisis Estadístico Riguroso}
+
+Para establecer la significancia estadística de los resultados y validar las conclusiones, implementamos una batería completa de tests estadísticos:
+
+\subsubsection{Test de Friedman}
+
+El test de Friedman no paramétrico evalúa si existen diferencias significativas entre los múltiples métodos comparados:
+
+\begin{table}[H]
+\centering
+\caption{Resultados del test de Friedman por algoritmo}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Algoritmo} & \textbf{Estadístico $\chi^2$} & \textbf{p-value} & \textbf{Conclusión} \\
+\midrule
+AdaBoost & 1.48 & 0.477 & No significativo \\
+\textbf{Random Forest} & \textbf{21.10} & \textbf{2.6e-05} & \textbf{Significativo} \\
+LibSVM\_SVC & 6.53 & 0.038 & Significativo \\
+AutoSklearn & 1.51 & 0.469 & No significativo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Test Post-Hoc de Nemenyi}
+
+Para los casos donde Friedman indica diferencias significativas, aplicamos el test de Nemenyi para identificar qué pares específicos de métodos difieren:
+
+\begin{table}[H]
+\centering
+\caption{Rankings promedio y diferencias críticas de Nemenyi}
+\begin{tabular}{lccc|c}
+\toprule
+\textbf{Algoritmo} & \textbf{FSBO} & \textbf{Random} & \textbf{GP-RS} & \textbf{CD (alfa=0.05)} \\
+\midrule
+AdaBoost & 1.95 & 2.01 & 2.04 & 0.239 \\
+\textbf{Random Forest} & \textbf{1.80} & 2.05 & 2.14 & 0.239 \\
+LibSVM\_SVC & 1.92 & 2.11 & 1.97 & 0.239 \\
+AutoSklearn & 1.96 & 2.03 & 2.00 & 0.239 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Para Random Forest, las diferencias son:
+\begin{itemize}
+    \item FSBO vs Random: 0.253 > CD (0.239) → \textbf{Significativo}
+    \item FSBO vs GP-RS: 0.341 > CD (0.239) → \textbf{Significativo}
+    \item Random vs GP-RS: 0.089 < CD (0.239) → No significativo
+\end{itemize}
+
+\subsubsection{Test de Wilcoxon Pareado}
+
+Para comparaciones directas entre FSBO y cada baseline:
+
+\begin{table}[H]
+\centering
+\caption{Resultados del test de Wilcoxon pareado (alfa = 0.05)}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Algoritmo} & \multicolumn{3}{c}{\textbf{FSBO vs Random Search}} & \multicolumn{3}{c}{\textbf{FSBO vs GP-RS}} \\
+\cmidrule(lr){2-4} \cmidrule(lr){5-7}
+& p-value & Significativo & Ganador & p-value & Significativo & Ganador \\
+\midrule
+AdaBoost & 0.646 & No & Empate & 0.289 & No & Empate \\
+\textbf{Random Forest} & \textbf{0.0015} & \textbf{Sí} & \textbf{FSBO} & \textbf{0.0004} & \textbf{Sí} & \textbf{FSBO} \\
+LibSVM\_SVC & 0.005 & Sí & FSBO & 0.605 & No & Empate \\
+AutoSklearn & 0.202 & No & Empate & 0.482 & No & Empate \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+\subsection{AutoML con Modelo de Rendimiento (Tarea 3)}
+
+La Tarea 3 evalúa el papel de las meta-características como mecanismo de inicialización para sistemas de AutoML basados en modelos de rendimiento, específicamente AutoSklearn y Probabilistic Matrix Factorization (PMF). En estos sistemas, la búsqueda es adaptativa: se seleccionan iterativamente configuraciones, se observa su rendimiento, y se actualiza un modelo probabilístico que guía decisiones futuras.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1.0\textwidth]{task3.png}
+    \caption{AutoML con modelo de rendimiento: Curvas de rango $r(t, mf)$ comparando versiones originales de AutoSklearn y PMF con sus variantes híbridas inicializadas con MetaFeatX. Un rango menor indica mejor desempeño relativo.}
     \label{fig:task3}
 \end{figure}
 
-\subsection{Algoritmos, hiperpar\'ametros y protocolo}
+Los resultados de la Figura \ref{fig:task3} muestran que:
+\begin{itemize}
+    \item MetaFeatX+AutoSklearn supera consistentemente al pipeline AutoSklearn puro después de aproximadamente 10 iteraciones.
+    \item MetaFeatX+PMF logra superar al muestreo uniforme reforzado (Random4×) después de la décima iteración.
+    \item La inicialización informada por MetaFeatX proporciona un punto de partida significativamente mejor, permitiendo a los métodos de optimización adaptativa explorar regiones más prometedoras desde el inicio.
+\end{itemize}
 
-Los experimentos se realizan para tres algoritmos de aprendizaje supervisado (AdaBoost, RandomForest y SVM, usando implementaciones de \texttt{scikit-learn}) y dos pipelines de AutoML (AutoSklearn y PMF).  Para cada algoritmo se define un espacio de hiperpar\'ametros de dimensi\'on moderada, incluyendo por ejemplo el n\'umero de \'arboles, la profundidad m\'axima y los criterios de divisi\'on en RandomForest, as\'i como par\'ametros como $C$, tipo de \emph{kernel}, grado y $\gamma$ en el caso de SVM, y un conjunto amplio de opciones de preprocesamiento y clasificaci\'on en AutoSklearn.
+\subsection{Análisis de Sensibilidad e Interpretabilidad}
 
-Las representaciones objetivo de los conjuntos de datos se construyen a partir del conjunto de configuraciones con mejor rendimiento disponible: las veinte mejores sobre decenas de miles de configuraciones evaluadas en OpenML para AdaBoost, RandomForest y SVM, quinientas configuraciones por conjunto de datos para AutoSklearn y las veinte mejores entradas de la matriz de filtrado colaborativo en el caso de PMF.  El entrenamiento y evaluaci\'on de cada configuraci\'on se realiza sobre las particiones de entrenamiento, validaci\'on y prueba provistas por OpenML, recurriendo a validaci\'on cruzada de cinco pliegues para estimar el rendimiento.
+\subsubsection{Sensibilidad de MetaFeatX}
 
-En todas las tareas, los indicadores se calculan mediante el esquema \emph{leave-one-out}: para cada conjunto de datos que dispone de representaci\'on objetivo, se entrena METABU sobre el resto de conjuntos de datos y sus versiones de bootstrap, y se eval\'ua sobre el conjunto excluido; adicionalmente, los ocho conjuntos de datos sin representaci\'on objetivo se incorporan como casos de prueba en las tareas de muestreo de configuraciones, donde solo es necesario observar el rendimiento y no la estructura de la representaci\'on objetivo.
+El análisis de sensibilidad se centra en los hiperparámetros clave de MetaFeatX: $\alpha$ (que pondera las componentes Wasserstein y Gromov-Wasserstein en la distancia FGW) y $\lambda$ (que controla la regularización L1 sobre la transformación lineal $\psi$).
 
-\subsection{Resultados y an\'alisis}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{variabilidades.png}
+    \caption{Sensibilidad de MetaFeatX frente a los hiperparámetros $\alpha$ y $\lambda$, medida como la diferencia NDCG@10 respecto a AutoSklearn. Valores más oscuros indican mejor rendimiento.}
+    \label{fig:variabilidad}
+\end{figure}
 
-En la Tarea 1, las curvas de NDCG@k muestran que la m\'etrica inducida por METABU se alinea mejor que las referencias con la topolog\'ia objetivo, especialmente a medida que aumenta el valor de $k$.  Aunque la varianza es mayor debido a la naturaleza entrenable de METABU, los resultados indican que supera de forma significativa a las meta-caracter\'isticas de AutoSklearn, Landmark y SCOT para todos los valores de $k$ y para todos los espacios de hiperpar\'ametros considerados, lo que respalda la idea de que las meta-caracter\'isticas aprendidas capturan de forma m\'as fiel la estructura relevante para AutoML.
+Los resultados indican que:
+\begin{itemize}
+    \item MetaFeatX presenta baja sensibilidad a $\lambda$ cuando $\lambda \leq 10^{-3}$.
+    \item La sensibilidad a $\alpha$ es mínima en el intervalo $[0.3, 0.7]$, confirmando la importancia de considerar ambas componentes de distancia.
+    \item Valores extremos ($\alpha \leq 0.1$ o $\alpha \geq 0.99$) degradan significativamente el rendimiento, mostrando que tanto la información de transporte (Wasserstein) como la estructural (Gromov-Wasserstein) son necesarias.
+\end{itemize}
 
-En la Tarea 2, las curvas de rango evidencian una mejora sustancial en la calidad del muestreo de configuraciones.  Para RandomForest, las meta-caracter\'isticas SCOT resultan competitivas en las primeras iteraciones, pero METABU pasa a dominar en fases posteriores; para AdaBoost, las meta-caracter\'isticas de AutoSklearn pueden ofrecer ligeras ventajas en las tres primeras configuraciones evaluadas, mientras que METABU se vuelve significativamente mejor a partir de ese punto; para SVM, METABU supera de forma clara y consistente a todas las alternativas a lo largo de toda la b\'usqueda.  Estos resultados indican que la topolog\'ia inducida por METABU permite explotar con mayor eficacia los vecindarios de conjuntos de datos a la hora de seleccionar regiones prometedoras del espacio de configuraciones, incluso en ausencia de un modelo de rendimiento adaptativo.
+\subsubsection{Dimensión Intrínseca del Espacio de Problemas}
 
-En la Tarea 3, las variantes METABU+AutoSklearn y METABU+PMF mejoran los rangos obtenidos por las versiones originales de AutoSklearn y PMF, pese a que la \'unica diferencia entre ellas reside en la fase de inicializaci\'on.  En particular, METABU+AutoSklearn sobrepasa al pipeline AutoSklearn puro a partir de un n\'umero moderado de iteraciones, y METABU+PMF consigue superar al muestreo uniforme reforzado que elige el mejor de cuatro configuraciones aleatorias a partir de aproximadamente la d\'ecima iteraci\'on.  Este comportamiento sugiere que las meta-caracter\'isticas de METABU no solo favorecen la explotaci\'on, al identificar una buena regi\'on inicial del espacio de configuraciones, sino que tambi\'en facilitan una exploraci\'on eficaz cuando se combinan con modelos de rendimiento que se actualizan de manera incremental.
+A partir de la distribución de distancias de Wasserstein entre representaciones objetivo, estimamos la dimensionalidad intrínseca del espacio de problemas para cada algoritmo:
+\begin{itemize}
+    \item AutoSklearn: 6 dimensiones
+    \item AdaBoost: 8 dimensiones  
+    \item Random Forest: 9 dimensiones
+    \item SVM: 14 dimensiones
+\end{itemize}
 
-\subsection{Sensibilidad e interpretabilidad}
+Esta medida cuantitativa proporciona insights sobre la complejidad del problema de AutoML desde la perspectiva de cada algoritmo. Un valor más alto indica que el algoritmo muestra respuestas más variadas y complejas a diferentes datasets, requiriendo un espacio de representación más rico para capturar su comportamiento.
 
-El an\'alisis de sensibilidad se centra en los par\'ametros $\alpha$, que pondera las componentes Wasserstein y Gromov-Wasserstein en la distancia FGW, y $\lambda$, que controla el peso de la regularizaci\'on L1 sobre la transformaci\'on lineal $\psi$.  Se eval\'ua la diferencia NDCG@10(METABU) $-$ NDCG@10(AutoSklearn) sobre una rejilla de valores de $\alpha$ y $\lambda$, observ\'andose que dicha diferencia es positiva en todo el dominio considerado y estad\'isticamente significativa para niveles de significaci\'on convencionales.  Adem\'as, METABU muestra baja sensibilidad cuando $\lambda \leq 10^{-3}$ y $\alpha$ se sit\'ua entre 0.3 y 0.7, mientras que valores extremos de $\alpha$ que anulan pr\'acticamente una de las dos componentes de la distancia conducen a una degradaci\'on apreciable del rendimiento.
+\subsubsection{Interpretabilidad de las Meta-características}
 
-En cuanto a la dimensi\'on intr\'inseca del espacio de conjuntos de datos, definida a partir de la distribuci\'on de distancias de Wasserstein de orden uno entre representaciones objetivo, se estima que es aproximadamente 6 para AutoSklearn, 8 para AdaBoost, 9 para RandomForest y 14 para SVM, con un an\'alisis adicional de estabilidad que muestra c\'omo esta dimensi\'on crece al incorporar m\'as conjuntos de datos.  Esta medida proporciona una interpretaci\'on cuantitativa de la complejidad del problema de AutoML desde la perspectiva de cada algoritmo: cuanto m\'as variada es la respuesta de un algoritmo a los distintos conjuntos de datos, mayor es la dimensi\'on intr\'inseca asociada.
+Mediante análisis de componentes principales (PCA) de las representaciones aprendidas por MetaFeatX, analizamos la importancia de cada meta-característica manual como contribución a la primera componente principal. Representando cada meta-característica como un punto en el plano definido por sus importancias para dos algoritmos distintos, obtenemos una visión de qué propiedades de los datos son compartidas o específicas de cada algoritmo.
 
-Por \'ultimo, se analiza la interpretabilidad de las meta-caracter\'isticas METABU proyectando las representaciones aprendidas mediante an\'alisis de componentes principales y midiendo la importancia de cada meta-caracter\'istica manual como contribuci\'on a la primera componente principal.  Representando cada meta-caracter\'istica como un punto en el plano definido por sus importancias para dos algoritmos distintos, se obtiene una visi\'on de qu\'e propiedades de los datos son compartidas o espec\'ificas de cada algoritmo, observ\'andose, por ejemplo, que el \'indice de Dunn y las medidas de importancia de atributos resultan relevantes tanto para RandomForest como para AdaBoost, mientras que la proporci\'on de instancias con valores perdidos y el desbalanceo de clases afectan m\'as a AdaBoost, y la dispersidad y la asimetr\'ia de los atributos tienen un peso mayor en SVM que en RandomForest.
+Hallazgos clave de este análisis:
+\begin{itemize}
+    \item El índice de Dunn y las medidas de importancia de atributos son relevantes tanto para Random Forest como para AdaBoost.
+    \item La proporción de instancias con valores perdidos y el desbalanceo de clases afectan más a AdaBoost.
+    \item La dispersidad y la asimetría de los atributos tienen mayor peso en SVM que en Random Forest.
+\end{itemize}
 
 
+\subsection{Análisis mediante diagramas de caja (boxplots)}
+
+\paragraph{Motivación.}
+En AutoML y Meta-learning no se evalúa el desempeño sobre un único dataset, sino sobre un conjunto heterogéneo de muchos datasets. Por lo tanto, la pregunta relevante no es \emph{``qué método tiene el mejor promedio''}, sino más bien:
+\begin{quote}
+\emph{``qué método funciona de manera confiable en una amplia variedad de datasets''.}
+\end{quote}
+Esta distinción es crucial, ya que en escenarios reales el usuario desconoce a priori las características del dataset que enfrentará.
+
+\paragraph{Métrica utilizada.}
+Para cada dataset, el metalearner produce un ranking de configuraciones (combinaciones de algoritmo e hiperparámetros). La métrica \(\text{NDCG@}k\) cuantifica qué tan arriba en dicho ranking aparece la mejor configuración real. De este modo, cada dataset genera un valor escalar de NDCG@\(k\). En nuestro caso, al disponer de 64 datasets, se obtienen 64 valores de NDCG@\(k\) por método evaluado.
+
+\paragraph{Qué representa el boxplot.}
+El diagrama de caja resume la distribución de estos valores de NDCG@\(k\) y se interpreta de la siguiente forma:
+\begin{itemize}
+    \item La \textbf{línea central} corresponde a la mediana y representa el comportamiento de un dataset típico.
+    \item La \textbf{caja} contiene el 50\% central de los datasets (entre el primer y tercer cuartil).
+    \item Los \textbf{bigotes} indican el rango de variación considerado normal.
+    \item Los \textbf{puntos fuera de los bigotes} (outliers) corresponden a datasets particularmente difíciles, para los cuales el método no logró producir un buen ranking de configuraciones.
+\end{itemize}
+
+A diferencia de un simple promedio, el boxplot permite evaluar simultáneamente el rendimiento y la estabilidad del método a través de múltiples tareas.
+
+
+
+\paragraph{Interpretación.}
+Si el boxplot de MetaFeatX se encuentra:
+\begin{itemize}
+    \item en una posición más alta,
+    \item con una caja más compacta,
+    \item y con menos outliers,
+\end{itemize}
+entonces se puede concluir que MetaFeatX no solo obtiene un mayor rendimiento medio, sino que además es más consistente a lo largo de los diferentes datasets. Esto constituye evidencia de una \emph{transferencia de conocimiento real} entre tareas.
+
+\paragraph{Relevancia práctica.}
+En aplicaciones reales de AutoML, el usuario no sabe de antemano qué dataset enfrentará, por lo que necesita un sistema que funcione bien ``casi siempre''. El uso de boxplots permite visualizar precisamente esta propiedad, evaluando no solo cuán bueno es un método en promedio, sino también cuán confiable es frente a la variabilidad entre datasets.
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{boxplot_task1_by_pipeline.jpeg}
+    \caption{Diagramas de caja de NDCG@\(k\) para cada pipeline y cada tipo de metafeature. Se muestra la distribución del rendimiento a lo largo de todos los datasets considerados.}
+    \label{fig:boxplot_task1}
+\end{figure}
+
+\paragraph{Discusión de resultados.}
+En el caso del pipeline basado en \emph{AdaBoost}, se observa que, a medida que aumenta el valor de \(k\), el boxplot correspondiente a MetaFeatX presenta una clara compactación, lo que indica una mayor estabilidad en el rendimiento a través de los distintos datasets. Paralelamente, los valores de NDCG alcanzados por MetaFeatX son sistemáticamente superiores a los obtenidos mediante las metafeatures predefinidas de AutoSklearn, así como por Landmark y SCOT, lo que refleja una mejor capacidad para ordenar las configuraciones según su desempeño real.
+
+Este comportamiento no es exclusivo de AdaBoost, sino que se reproduce de manera consistente en los demás pipelines evaluados. En conjunto, estos resultados indican que MetaFeatX no solo logra mayores valores promedio de NDCG, sino que también ofrece recomendaciones más estables y confiables a lo largo de una amplia variedad de datasets. Por lo tanto, puede concluirse que MetaFeatX cumple efectivamente su objetivo principal: proporcionar rankings de configuraciones de mayor calidad que los obtenidos mediante metafeatures diseñadas manualmente.
+
+\subsection{Curva de aprendizaje basada en NDCG@20}
+
+\paragraph{Motivación.}
+La curva de NDCG@20 en función del tamaño del conjunto de entrenamiento mide directamente la \emph{transferencia de conocimiento entre tareas}, es decir, cuánta experiencia previa necesita el metalearner para producir recomendaciones útiles en un dataset nunca visto. A diferencia de métricas de error clásicas, esta curva evalúa la capacidad del sistema para generalizar a nuevas tareas a partir de experiencias pasadas.
+
+La elección de NDCG@\(k\) con \(k=20\) responde a que, en este contexto, no solo interesa que el sistema identifique una única buena configuración, sino que ordene correctamente el espacio completo de configuraciones. Un valor elevado de NDCG@20 indica que las mejores configuraciones reales aparecen de manera consistente entre las primeras posiciones del ranking recomendado por el metalearner.
+
+\paragraph{Construcción de la curva.}
+Para cada dataset \(d \in D\), se aplica un esquema de \emph{leave-one-out} a nivel de tareas: el dataset \(d\) se reserva como conjunto de prueba meta, mientras que el resto \(D \setminus \{d\}\) se divide en un subconjunto de entrenamiento \(D_{\text{train}}\) y un subconjunto de validación \(D_{\text{val}}\). El metalearner se entrena únicamente sobre \(D_{\text{train}}\), se regulariza y ajusta usando \(D_{\text{val}}\), y finalmente se evalúa sobre el dataset nunca visto \(d\).
+
+Este procedimiento se repite para distintos tamaños \(|D_{\text{train}}|\), generando así un conjunto de valores de NDCG@20 que, al promediarse sobre todos los datasets, define la curva de aprendizaje. De este modo, la curva refleja cómo evoluciona la capacidad de recomendación del metalearner a medida que aumenta la cantidad de tareas disponibles durante su entrenamiento.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{training_vs_test.jpeg}
+    \caption{Curva de aprendizaje basada en NDCG@20. Se muestra el rendimiento medio del metalearner en los conjuntos de entrenamiento y validación a medida que aumenta el tamaño del conjunto de entrenamiento meta.}
+    \label{fig:learning_curve}
+\end{figure}
+
+\paragraph{Discusión de resultados.}
+Si bien se aprecia un sobreajuste marcado en el conjunto de entrenamiento, los valores obtenidos en el conjunto de validación permanecen sistemáticamente por encima del baseline de referencia (AutoSklearn). Esto indica que, a pesar del gap entre entrenamiento y validación, el metalearner logra generalizar conocimiento útil hacia datasets no vistos.
+
+El crecimiento progresivo de la curva de validación ratifica la hipótesis de que el modelo está aprendiendo una \emph{topología inducida por las representaciones objetivo de los datasets}, lo que se traduce en recomendaciones de configuraciones cada vez más precisas a medida que aumenta el tamaño del conjunto de entrenamiento meta. 
+
+Cabe destacar que estos resultados son susceptibles de mejora mediante la incorporación de un mayor número de datasets al conjunto global (actualmente limitado a 64) y a través de un ajuste más fino de los hiperparámetros del metalearner durante la fase de entrenamiento y validación. Dicho ajuste se realiza exclusivamente sobre las particiones \(D_{\text{train}}\) y \(D_{\text{val}}\), sin involucrar al dataset \(d\) reservado como prueba, preservando así la validez del protocolo de evaluación.
+
+
+\subsection{Discusión de Resultados}
+
+\subsubsection{¿Por qué FSBO funciona mejor en ciertos algoritmos?}
+
+El análisis de los resultados revela patrones interesantes sobre la efectividad diferencial de FSBO:
+
+\begin{itemize}
+    \item \textbf{Random Forest muestra la mayor mejora} (9-11\% reducción en NR) debido a:
+    \begin{enumerate}
+        \item Dimensionalidad moderada del espacio de búsqueda (6-8 hiperparámetros principales)
+        \item Efectos relativamente suaves y regulares de los hiperparámetros
+        \item Alta transferibilidad de patrones óptimos entre tareas relacionadas
+    \end{enumerate}
+    
+    \item \textbf{AutoSklearn muestra la menor mejora relativa} debido a:
+    \begin{enumerate}
+        \item Alta dimensionalidad (~150 hiperparámetros)
+        \item Alta varianza en las métricas de rendimiento entre tareas
+        \item Interacciones complejas y no lineales entre componentes del pipeline
+    \end{enumerate}
+    
+    \item \textbf{La ventaja de FSBO es más pronunciada en las primeras iteraciones}, evidenciando que el conocimiento transferido es particularmente valioso para la fase de inicialización y exploración temprana.
+\end{itemize}
+
+\subsubsection{Contribución relativa de los componentes}
+
+El análisis desagregado sugiere que:
+\begin{itemize}
+    \item \textbf{MetaFeatX contribuye principalmente} a una mejor inicialización (warm-start) y identificación de regiones prometedoras.
+    \item \textbf{FSBO contribuye principalmente} a una exploración más eficiente y una convergencia acelerada.
+    \item \textbf{La sinergia entre ambos} es mayor que la suma de sus partes individuales, particularmente en escenarios con presupuesto evaluativo limitado.
+\end{itemize}
+
+\subsection{Limitaciones y Consideraciones Metodológicas}
+
+A pesar de los resultados prometedores, es importante reconocer ciertas limitaciones del estudio experimental:
+
+\begin{enumerate}
+    \item \textbf{Datos sintéticos para FSBO}: Las métricas de rendimiento utilizadas en los experimentos de FSBO son generadas sintéticamente mediante un modelo que combina componentes lineales, no lineales y ruido gaussiano. Si bien este enfoque permite experimentación controlada y reproducible, una evaluación con datos reales de evaluaciones en OpenML proporcionaría evidencia más fuerte de la efectividad práctica.
+    
+    \item \textbf{Presupuesto evaluativo limitado}: Los experimentos se limitan a 30 evaluaciones por tarea, lo cual puede ser insuficiente para espacios de búsqueda muy complejos. Futuros trabajos deberían explorar el comportamiento con presupuestos más largos (50-100 evaluaciones).
+    
+    \item \textbf{Selección de baselines}: La comparación se centra en métodos clásicos establecidos (Random Search, GP vanilla). Futuros trabajos deberían incluir métodos más recientes como BOHB (Hyperband with Bayesian Optimization), SMAC3 (Sequential Model-based Algorithm Configuration), o enfoques basados en transformers.
+    
+    \item \textbf{Complejidad computacional}: Aunque manejable para los experimentos actuales, la inversión matricial cúbica en el GP podría limitar la escalabilidad a problemas con cientos de evaluaciones. Soluciones aproximadas (inducing points, aproximaciones de kernel) deberían considerarse para aplicaciones a mayor escala.
+\end{enumerate}
+
+
+\subsection{Conclusiones de la Experimentación}
+
+Los resultados experimentales presentados en esta sección proporcionan evidencia sólida y estadísticamente validada sobre la efectividad del sistema de meta-learning propuesto:
+
+\begin{enumerate}
+    \item \textbf{MetaFeatX captura efectivamente la topología relevante} del espacio de datasets, superando consistentemente a conjuntos de meta-características manuales en la tarea de identificar problemas similares. Su superioridad en NDCG@k para todos los valores de $k$ valida su utilidad para inicialización inteligente en AutoML.
+    
+    \item \textbf{FSBO proporciona ventajas significativas en optimización de hiperparámetros}, particularmente para espacios de búsqueda de dimensionalidad moderada. La mejora estadísticamente significativa en Random Forest (9-11\% reducción en Normalized Regret) demuestra el valor práctico del transfer learning para HPO.
+    
+    \item \textbf{La integración sinérgica de ambos componentes crea un sistema superior}: MetaFeatX identifica algoritmos prometedores y proporciona inicializaciones informadas, mientras que FSBO optimiza eficientemente sus hiperparámetros mediante conocimiento transferido de tareas previas.
+    
+    \item \textbf{El sistema muestra robustez y estabilidad operacional}: Baja sensibilidad a hiperparámetros clave, comportamiento consistente a través de múltiples folds y semillas, y convergencia estable con varianza reducida comparada con métodos baseline.
+    
+    \item \textbf{La ventaja es particularmente pronunciada en escenarios realistas}: Presupuestos evaluativos limitados (30 evaluaciones), necesidad de warm-start efectivo, y requerimiento de generalización a datasets completamente nuevos.
+\end{enumerate}
+
+Estos hallazgos validan el enfoque de meta-learning para AutoML y establecen un fundamento sólido para el desarrollo de sistemas que aprenden de experiencias pasadas para acelerar y mejorar la optimización en nuevos problemas de machine learning.
+
+%-------------------------------------------------
+
+\newpage
 %-------------------------------------------------
 \section{Discusión}
+\label{sec:discussion}
 
+La evaluación experimental presentada en la Sección~\ref{sec:experimentation} proporciona una validación exhaustiva y multifacética del sistema de meta-learning propuesto. A través de un protocolo riguroso de validación cruzada sobre tareas, múltiples métricas complementarias y análisis estadísticos formales, los resultados permiten extraer conclusiones sólidas tanto sobre el comportamiento individual de los componentes del sistema como sobre su interacción conjunta.
+
+\subsection{MetaFeatX como representación topológica del espacio de tareas}
+
+Los resultados de la Tarea 1 (Sección 4.2) demuestran de manera consistente que MetaFeatX captura de forma más fiel la topología inducida por el rendimiento real de los algoritmos que los conjuntos de meta-características diseñadas manualmente. La superioridad sistemática en NDCG@k para todos los valores de $k$ considerados, así como la estabilidad observada en los boxplots (Figura~\ref{fig:boxplot_task1}), indican que la representación aprendida preserva relaciones semánticamente relevantes entre datasets.
+
+Este comportamiento sugiere que el uso de Transporte Óptimo Fused Gromov-Wasserstein permite integrar de forma efectiva información estructural y distributiva, superando las limitaciones inherentes a las meta-características estáticas. El hecho de que la ventaja de MetaFeatX aumente con valores mayores de $k$ refuerza la hipótesis de que la representación aprendida no solo identifica vecinos inmediatos, sino que modela correctamente regiones completas del espacio de problemas.
+
+\subsection{Generalización y transferencia entre tareas}
+
+La curva de aprendizaje basada en NDCG@20 (Sección 4.11) proporciona evidencia directa de la capacidad de transferencia de MetaFeatX. A pesar del sobreajuste esperado en el conjunto de entrenamiento —inevitable dada la limitada cantidad de tareas disponibles—, el desempeño sostenido en validación por encima del baseline de AutoSklearn indica que el modelo aprende regularidades transferibles entre tareas.
+
+Este resultado es particularmente relevante en escenarios reales de AutoML, donde el sistema debe enfrentarse a datasets completamente nuevos. La mejora progresiva del rendimiento en validación a medida que aumenta el número de tareas de entrenamiento confirma que MetaFeatX aprende una topología latente del espacio de problemas, en lugar de memorizar características específicas de los datasets observados.
+
+\subsection{AutoML sin modelo explícito de rendimiento}
+
+Los resultados de la Tarea 2 muestran que incluso en ausencia de un modelo de rendimiento explícito, MetaFeatX proporciona información suficiente para guiar eficazmente el muestreo inicial de configuraciones. La mejora consistente frente a muestreadores uniformes y a meta-características clásicas indica que la información de vecindario inducida por MetaFeatX es altamente informativa.
+
+Este hallazgo es significativo porque demuestra que la representación aprendida es útil por sí misma, independientemente del método de optimización posterior. En otras palabras, MetaFeatX no solo funciona como un complemento de FSBO, sino que constituye un módulo autónomo de meta-learning aplicable a distintos esquemas de AutoML.
+
+\subsection{Sinergia entre MetaFeatX y FSBO}
+
+La evaluación del sistema integrado (Sección 4.4) pone de manifiesto una clara sinergia entre MetaFeatX y FSBO. Mientras MetaFeatX aporta una inicialización informada y una selección más precisa de regiones prometedoras del espacio de búsqueda, FSBO explota esta información para acelerar la convergencia mediante transferencia de conocimiento entre tareas.
+
+Esta complementariedad se observa con especial claridad en Random Forest, donde se obtiene una reducción significativa del Normalized Regret $(9-11\%)$ respaldada por tests estadísticos rigurosos (Friedman, Nemenyi y Wilcoxon). La mejora más pronunciada en las primeras iteraciones confirma que el conocimiento transferido es particularmente valioso durante la fase de exploración temprana, cuando las decisiones iniciales tienen un impacto desproporcionado en el rendimiento final.
+
+\subsection{Impacto de la complejidad del espacio de búsqueda}
+
+Las diferencias observadas entre algoritmos (Sección 4.12) revelan una relación clara entre la efectividad del transfer learning y la complejidad del espacio de hiperparámetros. En espacios de dimensionalidad moderada y comportamiento más regular, como Random Forest y AdaBoost, FSBO logra explotar patrones compartidos entre tareas de manera eficiente. En contraste, en espacios altamente complejos como AutoSklearn, la ganancia relativa es menor, aunque consistente.
+
+Este comportamiento sugiere que, si bien el enfoque propuesto es general, su mayor beneficio se obtiene en escenarios donde existe una estructura subyacente transferible entre tareas, y donde el presupuesto evaluativo es limitado.
+
+\subsection{Robustez, estabilidad e interpretabilidad}
+
+Los análisis de sensibilidad (Sección 4.9) muestran que MetaFeatX es robusto frente a variaciones razonables de sus hiperparámetros principales, lo cual es una propiedad deseable en sistemas AutoML. Asimismo, el análisis de interpretabilidad revela que la representación aprendida asigna pesos significativos a meta-características coherentes con el comportamiento esperado de cada algoritmo, proporcionando una explicación intuitiva de sus decisiones.
+
+En conjunto, estos resultados refuerzan la idea de que MetaFeatX no actúa como una caja negra opaca, sino como un mecanismo de aprendizaje estructurado que puede ser analizado y comprendido.
+
+
+%-------------------------------------------------
+\newpage
 %-------------------------------------------------
 \section{Conclusiones}
+\label{sec:conclusions}
+
+En este trabajo se ha presentado un sistema de AutoML basado en meta-learning que combina el aprendizaje de meta-características mediante Transporte Óptimo (MetaFeatX) con un enfoque de optimización bayesiana con transferencia de conocimiento (FSBO). A través de una evaluación experimental exhaustiva y estadísticamente validada, se ha demostrado que esta combinación permite abordar de manera efectiva el problema de \emph{cold-start} en AutoML.
+
+Los resultados experimentales confirman que MetaFeatX aprende representaciones de datasets que capturan la topología relevante del espacio de problemas, superando de forma consistente a meta-características diseñadas manualmente en tareas de identificación de similitud entre datasets. Esta capacidad se traduce en recomendaciones más precisas, estables y transferibles, como se evidencia en las métricas NDCG@k, los boxplots y las curvas de aprendizaje.
+
+Asimismo, se ha demostrado que FSBO puede explotar eficazmente la información proporcionada por MetaFeatX para acelerar la optimización de hiperparámetros, particularmente en espacios de búsqueda de complejidad moderada. La reducción significativa del Normalized Regret y la mejora en la eficiencia de convergencia validan el valor práctico del transfer learning en escenarios de presupuesto evaluativo limitado.
+
+Un aspecto central de este trabajo es la demostración de que la integración de MetaFeatX y FSBO produce un sistema cuyo rendimiento supera al de cada componente por separado. MetaFeatX proporciona una inicialización informada y una estructuración del espacio de tareas, mientras que FSBO refina esta información mediante exploración adaptativa. Esta sinergia resulta especialmente relevante en contextos reales de AutoML, donde el número de evaluaciones es restringido y la generalización a nuevos datasets es crítica.
+
+Finalmente, los análisis de sensibilidad, interpretabilidad y estabilidad operacional indican que el sistema propuesto es robusto y confiable, lo que refuerza su viabilidad práctica. Como líneas futuras de trabajo, se plantea ampliar el benchmark de tareas, evaluar el sistema con datos reales de rendimiento en OpenML, e integrar métodos de optimización más escalables y modelos de transferencia más expresivos.
+
+En conjunto, este trabajo establece un marco sólido para el uso de meta-learning basado en representaciones aprendidas como pilar fundamental de sistemas AutoML adaptativos y eficientes.
 
 
 %-------------------------------------------------
+\newpage
+\addcontentsline{toc}{section}{Anexos} % <-- esto lo agrega al índice
+
 \begin{center}
 {\LARGE \textbf{Anexos}}\\[0.8em]
 {\Large Material Suplementario}\\[2.9em]
@@ -467,28 +1113,118 @@ El material suplementario incluye detalles adicionales sobre:
     \item Configuración experimental, indicadores de desempeño y procedimiento de validación (\hyperref[appendix:C]{Apéndice C})
     \item Espacio de configuración de hiperparámetros (\hyperref[appendix:D]{Apéndice D})
     \item Lista de meta-features básicas y conjuntos de meta-features de referencia (\hyperref[appendix:E]{Apéndice E})
-    \item Detalles sobre el tiempo computacional (\hyperref[appendix:F]{Apéndice F})
-    \item Información sobre el problema AutoML proporcionada por el enfoque: dimensionalidad intrínseca (\hyperref[appendix:G1]{Apéndice G.1}) y visualización de los nichos de los algoritmos ML considerados (\hyperref[appendix:G2]{Apéndice G.2})
-    \item Resultados detallados con desviación estándar en las tres tareas (\hyperref[appendix:H]{Apéndice H})
-    \item Comparación par a par de MetaFeatX con meta-features de referencia (\hyperref[appendix:I]{Apéndice I})
-    \item Análisis de sensibilidad de la dimensión $d$ (\hyperref[appendix:J]{Apéndice J})
-    \item Curvas de desempeño de la Tarea 2 (\hyperref[appendix:K]{Apéndice K})
+    \item Información sobre el problema AutoML proporcionada por el enfoque: dimensionalidad intrínseca (\hyperref[appendix:F1]{Apéndice F.1}) y visualización de los nichos de los algoritmos ML considerados (\hyperref[appendix:F2]{Apéndice F.2})
+    \item Análisis de sensibilidad de la dimensión $d$ (\hyperref[appendix:G]{Apéndice G})
+    \item Curvas de desempeño de la Tarea 2 (\hyperref[appendix:H]{Apéndice H})
 \end{itemize}
 
 \newpage
 \appendix
 
-\section*{Ampliación del benchmark OpenML}
+\section*{Augmentaci\'on del benchmark OpenML}
 \label{appendix:A}
-\lipsum[1] % ejemplo de contenido
 
+La visualización del benchmark ampliado mediante \emph{t-SNE} sobre el espacio de meta-features básicas muestra que los conjuntos de datos generados por \emph{bootstrapping} a partir de un mismo dataset original forman clústeres compactos alrededor de este. Este comportamiento es esperado, ya que las meta-features diseñadas manualmente son estables frente a pequeñas variaciones estocásticas de los datos.
+
+Asimismo, los clústeres asociados a distintos datasets de OpenML permanecen claramente separados entre sí, incluso al variar el parámetro de \emph{perplexity} en un amplio rango. Este resultado sugiere que el benchmark original de OpenML cubre de manera dispersa el espacio de meta-features, y que la ampliación mediante \emph{bootstrapping} permite densificar localmente dicho espacio sin introducir solapamientos artificiales entre datasets no relacionados.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{cluster_plot2.png}
+    \caption{Visualización 2D mediante t-SNE de los conjuntos de datos de OpenML en el espacio de representación básica ,junto con sus ampliaciones generadas por bootstrapping. Solo se muestran algunos nombres de datasets para facilitar la legibilidad..}
+    \label{fig:bootstrap}
+\end{figure}
+
+\newpage
 \section*{Pseudo-código del algoritmo}
 \label{appendix:B}
-\lipsum[2]
+El procedimiento de aprendizaje de MetaFeatX se describe en el Alg. 1, detallando la descripción 
+presentada anteriormente en la secci\'on 2.4. La densidad en el espacio de hiperparámetros, 
+utilizada para muestrear configuraciones de hiperparámetros para un dataset dado dependiendo de las
+meta-características consideradas , se presenta en el Alg.2.
 
+\begin{algorithm}
+\caption{Aprendizaje de meta-características de MetaFeatX}
+\textbf{Datos:} Conjunto de $n$ datasets de entrenamiento, cada uno con representación básica $x_i$ y representación objetivo $z_i$, $i=1 \dots n$ \\
+\textbf{Resultado:} Capa de embedding $\psi^*$
+\begin{algorithmic}[1]
+    % Paso 1: Construir la representación proyectada de los objetivos
+    \State Construir la representación proyectada de los objetivos:
+    \Statex \hspace{\algorithmicindent} $C_{i,j} \gets d^2_W(z_i, z_j), \quad i,j = 1\dots n \quad \text{(Distancia de Wasserstein par a par)}$
+    \Comment{Se calcula la matriz de distancias entre las representaciones de hiperparámetros de cada dataset.}
+    
+    % Paso 2: Estimar la dimensión intrínseca
+    \State Estimar la dimensión intrínseca $d$ a partir de la matriz $C$.
+    \Comment{Esto ayuda a reducir la dimensionalidad manteniendo la estructura de los datos.}
+
+    % Paso 3: Aplicar MDS
+    \State $u \gets \text{MDS}(C, d)$ 
+    \Comment{Multidimensional Scaling: proyecta los datos a un espacio de dimensión $d$ preservando las distancias.}
+
+    % Paso 4: Inicializar la capa de embedding
+    \State $\psi \gets \text{Linear}(135, d)$ 
+    \Comment{Capa lineal que mapea las 135 meta-características básicas a un espacio de dimensión $d$.}
+
+    % Paso 5: Calcular el promedio de las representaciones básicas
+    \State $x \gets \frac{1}{n}\sum_{i=1}^{n} x_i$ 
+    \Comment{Se obtiene un vector promedio de las representaciones básicas para normalizar el aprendizaje.}
+
+    % Paso 6: Definir la función de pérdida FGW
+    \State $L \gets \text{FGW}$
+    \Comment{FGW (Fused Gromov-Wasserstein) mide la discrepancia entre representaciones básicas y proyectadas.}
+
+    % Paso 7: Optimizar la capa de embedding con ADAM
+    \State $\psi^* \gets \text{ADAM}(L, \psi \# \mathbf{x}, \mathbf{u})$
+    \Comment{Se ajusta $\psi$ usando el optimizador ADAM para minimizar la función de pérdida $L$.}
+\end{algorithmic}
+\end{algorithm}
+
+
+\begin{algorithm}
+\caption{Ajuste de Densidad (Fit\_density)}
+\textbf{Datos:} Conjunto de $n$ datasets de entrenamiento, con vectores de meta-características $x_i$ y top-20 hiperparámetros $\Theta_i$, $i=1 \dots n$. Dataset de prueba $x$. \\
+\textbf{Resultado:} Distribución de configuraciones prometedoras $z$.
+
+\begin{algorithmic}
+
+\State $\|x - x_{(1)}\| < \|x - x_{(2)}\| < \dots < \|x - x_{(n)}\|$ 
+\Comment{Paso 1: Ordenar datasets por cercanía en el espacio de meta-características}
+
+
+\State $z = \frac{1}{Z} \sum_{\ell=1}^{10} \exp(-\ell)\sum_{\theta \in \Theta_\ell}  \, \theta$ 
+\Comment{Paso 2: Calcular distribución ponderada de éxito; $Z$ normaliza la suma}
+
+\end{algorithmic}
+\end{algorithm}
+
+\newpage
 \section*{Configuración experimental y procedimiento de validación}
 \label{appendix:C}
-\lipsum[3] 
+
+El benchmark de OpenML incluye 72 datasets, de los cuales 64 tienen representación de objetivo. Los 8 restantes son demasiado grandes para ejecutar los experimentos.  
+
+\subsection*{Leave-One-Out y uso de splits}
+Para evaluar las meta-características, se emplea un esquema \textit{Leave-One-Out} (LOO) sobre los 64 datasets con representación de objetivo:  
+\begin{itemize}
+    \item En cada fold, se toma un dataset como prueba y los 63 restantes se usan para entrenar las meta-características.
+    \item El dataset de prueba nunca participa en el entrenamiento de las meta-características, garantizando una evaluación justa.
+    \item Dentro del fold, los conjuntos de entrenamiento se dividen internamente en train/validación según los splits proporcionados por OpenML (usando 5-CV para estimar la validación).
+    \item Para las tareas 2 y 3, además del fold de prueba, los 8 datasets sin representación de objetivo se incluyen como conjuntos de prueba adicionales.
+\end{itemize}
+
+\subsection*{Indicadores de desempeño}
+\begin{itemize}
+    \item \textbf{Tarea 1:} El desempeño se mide con NDCG@k promedio sobre los 64 folds.  
+    \item \textbf{Tareas 2 y 3:} Para cada dataset de prueba, se muestrean configuraciones de hiperparámetros a partir de los vecinos más cercanos según las meta-características. El desempeño se calcula en el conjunto de validación y el mejor modelo se evalúa sobre el dataset de prueba.
+\end{itemize}
+
+\subsection*{Notas sobre el uso de LOO}
+\begin{itemize}
+    \item Garantiza que cada dataset se evalúe sin haber participado en el entrenamiento de las meta-características.  
+    \item Permite usar el benchmark de forma eficiente, aprovechando todos los datasets disponibles para entrenar mientras se valida de manera independiente.  
+    \item Mantiene consistencia en la comparación de métodos (MetaFeatX, AutoSkLearn, Landmark, SCOT).
+\end{itemize}
+
 
 \newpage
 \section*{Espacios de Configuración de Hiperparámetros}
@@ -822,33 +1558,106 @@ LogNumberOfInstances & Logaritmo del número de instancias.  \\
 
 
 \newpage
-\section*{Detalles del tiempo computacional}
-\label{appendix:F}
-\lipsum[6]
 
-\section*{Perspectivas sobre el problema de AutoML}
-\label{appendix:G1}
-\lipsum[7]
 
-\subsection*{Visualización de los nichos de los algoritmos de ML}
-\label{appendix:G2}
-\lipsum[8]
+\newpage
+\section*{La estabilidad de la dimensi\'on intr\'inseca}
+\label{appendix:F1}
 
-\section*{Resultados detallados en las tres tareas}
-\label{appendix:H}
-\lipsum[9]
 
-\section*{Comparación por pares con las meta-características de referencia}
-\label{appendix:I}
-\lipsum[10]
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{dataset.png}
+    \caption{Dimensión intrínseca del espacio de datasets con respecto a los algoritmos de ML Adaboost, RandomForest, SVM y AutoSkLearn, en función de la fracción de datasets considerados en OpenML.}
+    \label{fig:intrinsic_table}
+\end{figure}
+
+
+
+En la tabla ~\ref{fig:intrinsic_table} investigamos cómo varía la dimensión intrínseca al considerar distintos números de conjuntos de datos en OpenML. Se observa que la dimensión intrínseca tiende a aumentar con el número de conjuntos de datos considerados, especialmente en el caso de SVM y, en menor medida, en Random Forest. Esto sugiere que las configuraciones de hiperparámetros exploradas en el benchmark de OpenML para estos algoritmos no muestrean de manera suficientemente adecuada (las regiones buenas del) espacio de configuraciones.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{grafica_intrinsi.png}
+    \caption{Dimensión intrínseca del espacio de datasets con respecto a los algoritmos de ML Adaboost, RandomForest, SVM y AutoSkLearn, en función de la fracción de datasets considerados en OpenML.}
+    \label{fig:intrinsic_graphicx}
+\end{figure}
+
+
+\newpage
+\subsection*{Interpretación: impacto de las meta-features HC en el rendimiento del algoritmo de aprendizaje}
+\label{appendix:F2}
+
+Las meta-features \textit{MetaFeatX} se construyen a partir de las meta-features iniciales definidas manualmente (HC meta-features) mediante un mapeo lineal aprendido $\psi$, el cual depende del algoritmo de aprendizaje considerado. Este mapeo proyecta las representaciones básicas de los datasets a un espacio latente de menor dimensión que captura las propiedades relevantes para el rendimiento del algoritmo.
+
+Con el objetivo de interpretar el impacto de las meta-features originales sobre el rendimiento de cada algoritmo, se analiza la importancia de dichas características a través de un análisis de componentes principales (PCA). Para ello, se considera la matriz $U$ obtenida mediante \textit{Multidimensional Scaling} (MDS) aplicada a las representaciones objetivo de todos los datasets, tal como se describe en la Sección~3.2.
+
+El primer componente principal de $U$ representa la dirección de máxima variabilidad entre los datasets en el espacio MetaFeatX. Se identifica entonces la dimensión $j^*$ que más contribuye a dicho componente, y se utiliza el mapeo lineal $\psi$ para estimar la contribución de cada meta-feature original a esta dimensión dominante. Formalmente, la importancia de la $k$-ésima meta-feature inicial con respecto a un algoritmo de aprendizaje $A$ se define como el valor absoluto del coeficiente correspondiente $\lvert \psi_{j^*,k} \rvert$.
+
+Este procedimiento permite cuantificar qué propiedades de los datasets son más determinantes para el rendimiento de un algoritmo específico. Además, facilita la comparación entre distintos algoritmos al representar cada meta-feature como un punto en el plano bidimensional $(i_A(k), i_B(k))$, donde $i_A(k)$ y $i_B(k)$ indican la importancia de la meta-feature $k$ para los algoritmos $A$ y $B$, respectivamente.
+
+En esta representación, las meta-features cercanas a la diagonal presentan una importancia similar para ambos algoritmos, mientras que aquellas alejadas de la diagonal resultan significativamente más relevantes para uno de ellos. Este análisis permite identificar diferencias estructurales entre algoritmos y proporciona una interpretación intuitiva de por qué ciertas características del dataset favorecen el rendimiento de un algoritmo sobre otro.
+
+Los resultados confirman, en muchos casos, la intuición del experto. Por ejemplo, algunas meta-features relacionadas con la distribución de los datos resultan críticas para algoritmos basados en modelos complejos como AutoSkLearn, mientras que características relacionadas con correlaciones y asimetrías en los datos tienen un impacto mayor en algoritmos como Random Forest o Support Vector Machines. En conjunto, este análisis aporta una interpretación semántica del espacio MetaFeatX y refuerza la coherencia entre el modelo aprendido y el conocimiento práctico.
+
+Asimismo, la importancia de las meta-features con respecto a Support Vector Machines y Random Forest se muestra en la Figura ~\ref{fig:Figura_8} (derecha). Las características relacionadas con la asimetría (skewness) —media y desviación estándar sobre todos los atributos— resultan significativamente más relevantes para Support Vector Machines que para Random Forest. En retrospectiva, no sorprende que las meta-features asociadas a las posibles dificultades en la inversión de la matriz de Gram sean particularmente importantes para SVM.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1.0\textwidth]{meta-feature-grafica.png}
+    \caption{Importancia comparativa de las meta-features para Random Forest vs. AutoSkLearn (izquierda) y SVM (derecha). Las meta-features específicas de AutoSkLearn se indican porque su nombre comienza con una letra mayúscula.}
+    \label{fig:Figura_8}
+\end{figure}
+
 
 \section*{Análisis de sensibilidad de la dimensión $d$}
-\label{appendix:J}
-\lipsum[11]
+\label{appendix:G}
+
+La Tabla~\ref{fig:sensitivity_d} presenta el análisis de sensibilidad del método \textit{MetaFeatX} con respecto al número de meta-características $d$ en la Tarea 1, evaluado mediante la métrica NDCG@k. Los resultados permiten extraer dos conclusiones principales. En primer lugar, el mejor desempeño se obtiene, en la gran mayoría de los casos, cuando $d$ coincide con la dimensión intrínseca estimada del benchmark. En segundo lugar, la sensibilidad del rendimiento con respecto a variaciones en $d$ es moderada, lo que indica una alta robustez del método frente a la elección de este hiperparámetro.
+
+En particular, la dimensión intrínseca estimada del benchmark OpenML es aproximadamente igual a 6 para AutoSkLearn, 8 para AdaBoost, 9 para Random Forest y 14 para Support Vector Machines. Para estos valores, MetaFeatX alcanza sistemáticamente los mayores valores de NDCG@k, superando o igualando el rendimiento obtenido con dimensiones menores o mayores.
+
+Este comportamiento sugiere que la selección de $d$ basada en la dimensión intrínseca permite capturar de forma más adecuada la estructura latente del espacio de tareas, evitando tanto la pérdida de información asociada a dimensiones demasiado bajas como el ruido introducido por representaciones excesivamente altas. Además, la estabilidad observada en los resultados para distintos valores de $k$ refuerza la idea de que MetaFeatX no es altamente sensible a pequeñas desviaciones en la elección de $d$, lo cual es una propiedad deseable en escenarios prácticos de AutoML.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{sensibilidad.png}
+    \caption{Análisis de sensibilidad de MetaFeatX respecto al número de meta-características $d$ en la Tarea 1, medido mediante NDCG@k para distintos algoritmos.}
+    \label{fig:sensitivity_d}
+\end{figure}
 
 \section*{Curvas de rendimiento de la Tarea 2}
-\label{appendix:K}
-\lipsum[12]
+\label{appendix:H}
+
+Además de los resultados de ranking presentados en la Figura~3b,
+en esta sección se muestran las curvas de rendimiento correspondientes a la Tarea 2,
+evaluadas sobre 10 conjuntos de datos representativos del benchmark OpenML CC-18.
+
+Estas curvas permiten observar no solo el orden relativo de los métodos, sino también la evolución
+temporal de su desempeño absoluto a lo largo de las iteraciones de búsqueda. En particular, se
+consideran los siguientes algoritmos base:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{14_curve.png}
+    \caption{}
+    \label{fig:curve14}
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{219_curve.png}
+    \caption{}
+    \label{fig:curve219}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{3022_curve.png}
+    \caption{}
+    \label{fig:curve3022}
+\end{figure}
 
 \bibliographystyle{plainnat}
 \bibliography{references}

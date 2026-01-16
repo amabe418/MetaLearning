@@ -81,8 +81,6 @@ class MetaFeatX:
         self.cost_matrix = get_cost_matrix(
             target_repr=target_reprs,
             task_ids=list_ids,
-            column_id=column_id,
-            pairwise_target_dist_func=self.pairwise_target_dist_func,
             verbose=self.verbose,
             ncpus=self.ncpus,
         )

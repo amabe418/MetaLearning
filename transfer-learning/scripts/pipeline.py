@@ -704,8 +704,8 @@ class FSBOPipeline:
         try:
             optimizer = FSBOOptimizer.from_pretrained(
                 algorithm, 
-                self.checkpoint_dir,
-                self.device
+                checkpoint_dir=self.checkpoint_dir,
+                device=self.device
             )
         except FileNotFoundError:
             if self.verbose:

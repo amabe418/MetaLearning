@@ -23,6 +23,7 @@ wheels/
 # Virtual environments
 venv/
 env/
+env3.9/
 ENV/
 .venv
 
@@ -70,3 +71,6 @@ report/*
 data/bootstrap_representations.csv
 A/
 .cursor/
+
+images/
+outputs/

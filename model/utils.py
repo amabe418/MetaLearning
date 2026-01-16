@@ -4,10 +4,10 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import ndcg_score
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
-
+from model.distance import distance_wasserstein
 
 def get_cost_matrix(
-    target_repr, task_ids, verbose, column_id, pairwise_target_dist_func, ncpus=1
+    target_repr, task_ids, verbose, ncpus=1
 ):
     """
     Calcula la matriz de distancias entre tareas usando una función de distancia dada.
@@ -27,31 +27,22 @@ def get_cost_matrix(
         - La matriz se hace simétrica y la diagonal se llena de ceros.
         - La matriz se normaliza dividiendo por su valor máximo.
     """
+
+    print(target_repr)
+
     matrix_ot_distance = []
     for task_a in tqdm(task_ids, disable=not verbose):
         temp_distance = []
-        p = Pool(ncpus)
+        #p = Pool(ncpus)
         params = [
-            (
-                target_repr.loc[target_repr[column_id] == task_a]
-                .drop([column_id], axis=1)
-                .values,
-                target_repr.loc[target_repr[column_id] == task_b]
-                .drop([column_id], axis=1)
-                .values,
-            )
-            for task_b in task_ids
+            (target_repr.loc[target_repr.task_id == task_a].drop(
+                ['task_id'], axis=1).values,
+             target_repr.loc[target_repr.task_id == task_b].drop(
+                 ['task_id'], axis=1).values
+             ) for task_b in task_ids
         ]
-        temp_distance = p.map(pairwise_target_dist_func, params)
+        temp_distance = [distance_wasserstein(_) for _ in params]
 
-        # for task_b in task_ids:
-        #     target_representation_for_task_a = target_repr.loc[target_repr.task_id == task_a].drop(
-        #         ['task_id'], axis=1).values
-        #     target_representation_for_task_b = target_repr.loc[target_repr.task_id == task_b].drop(
-        #         ['task_id'], axis=1).values
-        #     target_distance_between_task_a_b = wasserstein_distance(target_representation_for_task_a,
-        #                                                             target_representation_for_task_b)
-        #     temp_distance.append(target_distance_between_task_a_b)
         matrix_ot_distance.append(temp_distance)
 
     matrix_ot_distance = np.array(matrix_ot_distance)

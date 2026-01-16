@@ -1,0 +1,14 @@
+defaults:
+  - metafeature: metafeatx
+  - task: task1
+  - pipeline: adaboost
+
+output_file: null
+
+openml_tid: 3
+
+data_path: ???
+
+seed: 42
+
+
