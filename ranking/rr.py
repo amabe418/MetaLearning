@@ -1,61 +1,79 @@
+"""
+random_recommender.py
+
+Este script implementa un **baseline aleatorio de recomendación de algoritmos**
+para el problema de *algorithm ranking* en meta-learning.
+
+Objetivo:
+----------
+Servir como un **baseline no informado** que genere, para cada dataset,
+un ranking de algoritmos completamente aleatorio pero **reproducible**.
+Se utiliza como referencia inferior para evaluar la calidad de otros
+recomendadores más sofisticados.
+
+Metodología:
+-------------
+1. El recomendador recibe únicamente el `dataset_id`, sin usar meta-features
+   ni información de desempeño.
+2. Se combina una semilla global con un hash estable del identificador del
+   dataset para garantizar reproducibilidad.
+3. Se genera una permutación aleatoria de los algoritmos candidatos,
+   produciendo un ranking completo por dataset.
+
+Uso experimental:
+------------------
+Los rankings generados se comparan con el ranking ideal mediante métricas
+como **NDCG** o **Spearman**, y los resultados se agregan en una matriz
+dataset * recomendador para su posterior análisis estadístico
+(por ejemplo, test de **Friedman**).
+
+Rol del baseline:
+-----------------
+Este método establece el nivel de desempeño esperado por azar y permite
+verificar que los modelos propuestos superan claramente una recomendación
+aleatoria.
+"""
+
+
 import random
-import numpy as np
-import pandas as pd
+import argparse
+from typing import List
+import hashlib
 
 
-def random_ranking_repeated(datasets, algorithms, n_repeats=100, seed=None):
-    """
-    Generate a stable random ranking by averaging multiple random permutations.
+class RandomRecommender:
+    def __init__(self, algorithms: List[str], seed: int | None = None):
+        self.algorithms = algorithms
+        self.seed = seed
 
-    Parameters
-    ----------
-    datasets : list
-        List of dataset identifiers.
-    algorithms : list
-        List of algorithm names.
-    n_repeats : int
-        Number of random repetitions.
-    seed : int, optional
-        Random seed for reproducibility.
+    def _stable_hash(self, dataset_id: str) -> int:
+        h = hashlib.md5(dataset_id.encode("utf-8")).hexdigest()
+        return int(h, 16)
 
-    Returns
-    -------
-    pd.DataFrame
-        Averaged rankings per dataset and algorithm.
-    """
-    if seed is not None:
-        random.seed(seed)
+    def recommend(self, dataset_id: str) -> List[str]:
+        base_seed = self.seed if self.seed is not None else 0
+        rng = random.Random(base_seed + self._stable_hash(dataset_id))
 
-    n_datasets = len(datasets)
-    n_algorithms = len(algorithms)
+        ranking = self.algorithms.copy()
+        rng.shuffle(ranking)
+        return ranking
 
-    ranks_accum = np.zeros((n_datasets, n_algorithms))
 
-    for _ in range(n_repeats):
-        for i in range(n_datasets):
-            perm = algorithms.copy()
-            random.shuffle(perm)
-            for j, alg in enumerate(algorithms):
-                ranks_accum[i, j] += perm.index(alg) + 1
+def main():
 
-    ranks_accum /= n_repeats
+    parser = argparse.ArgumentParser(description="Random algorithm recommender")
+    parser.add_argument("--dataset_id", required=True, type=str)
+    args = parser.parse_args()
 
-    return pd.DataFrame(
-        ranks_accum,
-        index=datasets,
-        columns=algorithms
-    )
+    algorithms = ["Adaboost", "Random_Forest", "SVC"]
+
+    random_rec = RandomRecommender(algorithms, seed=42)
+
+    ranking = random_rec.recommend(args.dataset_id)
+
+    print(f"Random ranking for dataset {args.dataset_id}:")
+    print(ranking)
 
 
 if __name__ == "__main__":
-    datasets = ["d1", "d2", "d3", "d4"]
-    algorithms = ["SVM", "RF", "KNN", "XGB"]
-
-    random_df = random_ranking_repeated(
-        datasets,
-        algorithms,
-        n_repeats=5000,
-        seed=42
-    )
-
-    print(random_df)
+    main()
