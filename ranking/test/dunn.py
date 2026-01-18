@@ -1,31 +1,36 @@
 import numpy as np
 import scikit_posthocs as sp
 
-def dunn_test(data, groups, p_adjust='bonferroni'):
+def dunn_test(data, p_adjust="bonferroni"):
     """
-    Realiza el test de Dunn para comparaciones múltiples tras un Friedman significativo.
-    Args:
-        data (array-like): Datos de las observaciones.
-        groups (array-like): Etiquetas de grupo para cada observación.
-        p_adjust (str): Método de corrección de p-valor ('bonferroni', 'holm', etc.).
-    Returns:
-        DataFrame: Resultados del test de Dunn con p-valores ajustados.
+    Dunn post-hoc test after Friedman.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        Shape (n_datasets, n_algorithms), containing ranks.
+    p_adjust : str
+        P-value correction method.
+
+    Returns
+    -------
+    pd.DataFrame
+        Pairwise p-values.
     """
-    return sp.posthoc_dunn(data, groups, p_adjust=p_adjust)
+    # Cada columna es un grupo (algoritmo)
+    groups = [data[:, i] for i in range(data.shape[1])]
+    return sp.posthoc_dunn(groups, p_adjust=p_adjust)
+
 
 if __name__ == "__main__":
-    # Ejemplo de uso real
-    # Supongamos 3 algoritmos evaluados en 5 datasets (ranks)
     data = np.array([
-        [1, 2, 3],  # dataset 1: rank de cada algoritmo
-        [2, 1, 3],  # dataset 2
-        [1, 3, 2],  # dataset 3
-        [2, 1, 3],  # dataset 4
-        [3, 2, 1],  # dataset 5
+        [1, 2, 3],
+        [2, 1, 3],
+        [1, 3, 2],
+        [2, 1, 3],
+        [3, 2, 1],
     ])
-    # Convertimos a formato largo
-    data_long = data.flatten()
-    groups = np.tile(np.array(["alg1", "alg2", "alg3"]), data.shape[0])
-    result = dunn_test(data_long, groups)
+
+    result = dunn_test(data)
     print("Resultados del test de Dunn:")
     print(result)
