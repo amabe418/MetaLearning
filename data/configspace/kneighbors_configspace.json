@@ -1,0 +1,38 @@
+{
+  "name": "sklearn.neighbors.KNeighborsClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__n_neighbors",
+      "type": "uniform_int",
+      "log": true,
+      "lower": 1,
+      "upper": 100,
+      "default": 1
+    },
+    {
+      "name": "classifier__weights",
+      "type": "categorical",
+      "choices": ["uniform", "distance"],
+      "default": "uniform",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__p",
+      "type": "categorical",
+      "choices": [1, 2],
+      "default": 2,
+      "probabilities": null
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}
