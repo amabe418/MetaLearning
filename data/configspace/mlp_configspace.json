@@ -1,0 +1,107 @@
+{
+  "name": "sklearn.neural_network.MLPClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__hidden_layer_depth",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 1,
+      "upper": 3,
+      "default": 1
+    },
+    {
+      "name": "classifier__num_nodes_per_layer",
+      "type": "uniform_int",
+      "log": true,
+      "lower": 16,
+      "upper": 264,
+      "default": 32
+    },
+    {
+      "name": "classifier__activation",
+      "type": "categorical",
+      "choices": ["tanh", "relu"],
+      "default": "relu",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__alpha",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-7,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__learning_rate_init",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 0.0001,
+      "upper": 0.5,
+      "default": 0.001
+    },
+    {
+      "name": "classifier__early_stopping",
+      "type": "categorical",
+      "choices": ["valid", "train"],
+      "default": "valid",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__n_iter_no_change",
+      "type": "constant",
+      "value": 32
+    },
+    {
+      "name": "classifier__validation_fraction",
+      "type": "constant",
+      "value": 0.1
+    },
+    {
+      "name": "classifier__tol",
+      "type": "constant",
+      "value": 0.0001
+    },
+    {
+      "name": "classifier__solver",
+      "type": "constant",
+      "value": "adam"
+    },
+    {
+      "name": "classifier__batch_size",
+      "type": "constant",
+      "value": "auto"
+    },
+    {
+      "name": "classifier__shuffle",
+      "type": "constant",
+      "value": true
+    },
+    {
+      "name": "classifier__beta_1",
+      "type": "constant",
+      "value": 0.9
+    },
+    {
+      "name": "classifier__beta_2",
+      "type": "constant",
+      "value": 0.999
+    },
+    {
+      "name": "classifier__epsilon",
+      "type": "constant",
+      "value": 1e-8
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

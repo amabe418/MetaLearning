@@ -1,0 +1,109 @@
+{
+  "name": "sklearn.ensemble.HistGradientBoostingClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__loss",
+      "type": "constant",
+      "value": "auto"
+    },
+    {
+      "name": "classifier__learning_rate",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 0.01,
+      "upper": 1.0,
+      "default": 0.1
+    },
+    {
+      "name": "classifier__min_samples_leaf",
+      "type": "uniform_int",
+      "log": true,
+      "lower": 1,
+      "upper": 200,
+      "default": 20
+    },
+    {
+      "name": "classifier__max_depth",
+      "type": "constant",
+      "value": null
+    },
+    {
+      "name": "classifier__max_leaf_nodes",
+      "type": "uniform_int",
+      "log": true,
+      "lower": 3,
+      "upper": 2047,
+      "default": 31
+    },
+    {
+      "name": "classifier__max_bins",
+      "type": "constant",
+      "value": 255
+    },
+    {
+      "name": "classifier__l2_regularization",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-10,
+      "upper": 1.0,
+      "default": 1e-10
+    },
+    {
+      "name": "classifier__early_stop",
+      "type": "categorical",
+      "choices": ["off", "valid", "train"],
+      "default": "off",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__tol",
+      "type": "constant",
+      "value": 1e-7
+    },
+    {
+      "name": "classifier__scoring",
+      "type": "constant",
+      "value": "loss"
+    },
+    {
+      "name": "classifier__n_iter_no_change",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 1,
+      "upper": 20,
+      "default": 10
+    },
+    {
+      "name": "classifier__validation_fraction",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 0.4,
+      "default": 0.1
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [
+    {
+      "type": "in",
+      "child": "classifier__n_iter_no_change",
+      "parent": "classifier__early_stop",
+      "values": ["valid", "train"]
+    },
+    {
+      "type": "equals",
+      "child": "classifier__validation_fraction",
+      "parent": "classifier__early_stop",
+      "value": "valid"
+    }
+  ],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}
