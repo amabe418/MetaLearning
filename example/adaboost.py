@@ -30,7 +30,7 @@ def main():
     # ========================
     basic_representations, target_representations, scaler, cols = load_and_preprocess_data(
         basic_path="data/basic_representations.csv",
-        target_path="data/adaboost_target_representations.csv"
+        target_path="data/random_forest_target_representation.csv"
     )
     
     meta = MetaFeatX()
@@ -55,19 +55,19 @@ def main():
     
     # ========================
     # Nuevo dataset
-    # ========================
-    new_representations = pd.read_csv("data/meta_features_task2.csv").fillna(0)
+    # # ========================
+    # new_representations = pd.read_csv("data/meta_features_task2.csv").fillna(0)
     
-    # Asegurarse de que tenga las mismas columnas
-    new_representations = new_representations[basic_representations.columns]
+    # # Asegurarse de que tenga las mismas columnas
+    # new_representations = new_representations[basic_representations.columns]
     
-    # Normalizar con el mismo scaler
-    new_representations[cols] = scaler.transform(new_representations[cols])
+    # # Normalizar con el mismo scaler
+    # new_representations[cols] = scaler.transform(new_representations[cols])
     
-    # Predecir nuevas representaciones 
-    predict_new = meta.predict(basic_reprs=new_representations)
-    print("Predicciones sobre nuevo dataset:")
-    print(predict_new)
+    # # Predecir nuevas representaciones 
+    # predict_new = meta.predict(basic_reprs=new_representations)
+    # print("Predicciones sobre nuevo dataset:")
+    # print(predict_new)
 
 if __name__ == "__main__":
     main()
