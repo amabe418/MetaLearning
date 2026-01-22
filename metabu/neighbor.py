@@ -43,7 +43,7 @@ def compute(dataset, ndcg = 10,meta="metabu", algorithm="adaboost"):
         "metafeature": cfg_metafeature,
         "task": cfg_task,
         "openml_tid": cfg_main.get("openml_tid", dataset),
-        "data_path": cfg_main.get("data_path", "./data"),
+        "data_path": cfg_main.get("data_path", "./data_metabu_iclr"),
         "output_file": cfg_main.get("output_file", None)
     })
 
