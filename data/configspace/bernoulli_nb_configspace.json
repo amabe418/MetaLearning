@@ -1,0 +1,31 @@
+{
+  "name": "sklearn.naive_bayes.BernoulliNB",
+  "hyperparameters": [
+    {
+      "name": "classifier__alpha",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 0.01,
+      "upper": 100.0,
+      "default": 1.0
+    },
+    {
+      "name": "classifier__fit_prior",
+      "type": "categorical",
+      "choices": [true, false],
+      "default": true,
+      "probabilities": null
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

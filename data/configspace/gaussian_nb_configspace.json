@@ -1,0 +1,16 @@
+{
+  "name": "sklearn.naive_bayes.GaussianNB",
+  "hyperparameters": [
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

@@ -32,7 +32,6 @@ ENV/
 *.ipynb_checkpoints
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -49,8 +48,6 @@ experiments/results/*
 !experiments/results/.gitkeep
 
 # Environment variables
-.env
-.env.local
 
 # OS
 .DS_Store
@@ -74,3 +71,12 @@ A/
 
 images/
 outputs/
+
+
+metabu/data_metabu_iclr/bootstrap_representations.csv
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
+config.bat
+node_modules

@@ -1,0 +1,117 @@
+{
+  "name": "sklearn.svm.LinearSVC",
+  "hyperparameters": [
+    {
+      "name": "classifier__penalty",
+      "type": "categorical",
+      "choices": ["l1", "l2"],
+      "default": "l2",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__loss",
+      "type": "categorical",
+      "choices": ["hinge", "squared_hinge"],
+      "default": "squared_hinge",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__dual",
+      "type": "constant",
+      "value": false
+    },
+    {
+      "name": "classifier__tol",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__C",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 0.03125,
+      "upper": 32768.0,
+      "default": 1.0
+    },
+    {
+      "name": "classifier__multi_class",
+      "type": "constant",
+      "value": "ovr"
+    },
+    {
+      "name": "classifier__fit_intercept",
+      "type": "constant",
+      "value": true
+    },
+    {
+      "name": "classifier__intercept_scaling",
+      "type": "constant",
+      "value": 1
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [
+    {
+      "type": "and",
+      "clauses": [
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__penalty",
+          "value": "l1"
+        },
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__loss",
+          "value": "hinge"
+        }
+      ]
+    },
+    {
+      "type": "and",
+      "clauses": [
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__dual",
+          "value": false
+        },
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__penalty",
+          "value": "l2"
+        },
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__loss",
+          "value": "hinge"
+        }
+      ]
+    },
+    {
+      "type": "and",
+      "clauses": [
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__dual",
+          "value": false
+        },
+        {
+          "type": "equals",
+          "hyperparameter": "classifier__penalty",
+          "value": "l1"
+        }
+      ]
+    }
+  ],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

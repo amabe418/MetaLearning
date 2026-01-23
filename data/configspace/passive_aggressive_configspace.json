@@ -1,0 +1,51 @@
+{
+  "name": "sklearn.linear_model.PassiveAggressiveClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__C",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 10.0,
+      "default": 1.0
+    },
+    {
+      "name": "classifier__fit_intercept",
+      "type": "constant",
+      "value": true
+    },
+    {
+      "name": "classifier__loss",
+      "type": "categorical",
+      "choices": ["hinge", "squared_hinge"],
+      "default": "hinge",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__tol",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__average",
+      "type": "categorical",
+      "choices": [false, true],
+      "default": false,
+      "probabilities": null
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

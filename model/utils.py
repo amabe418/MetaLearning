@@ -28,7 +28,7 @@ def get_cost_matrix(
         - La matriz se normaliza dividiendo por su valor máximo.
     """
 
-    print(target_repr)
+    #print(target_repr)
 
     matrix_ot_distance = []
     for task_a in tqdm(task_ids, disable=not verbose):

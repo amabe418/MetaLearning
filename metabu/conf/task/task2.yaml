@@ -1,0 +1,3 @@
+name: "task2"
+nb_iterations: 5
+ndcg: 5

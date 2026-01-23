@@ -1,0 +1,122 @@
+{
+  "name": "sklearn.linear_model.SGDClassifier",
+  "hyperparameters": [
+    {
+      "name": "classifier__loss",
+      "type": "categorical",
+      "choices": ["hinge", "log", "modified_huber", "squared_hinge", "perceptron"],
+      "default": "log",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__penalty",
+      "type": "categorical",
+      "choices": ["l1", "l2", "elasticnet"],
+      "default": "l2",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__alpha",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-7,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__l1_ratio",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-9,
+      "upper": 1.0,
+      "default": 0.15
+    },
+    {
+      "name": "classifier__fit_intercept",
+      "type": "constant",
+      "value": true
+    },
+    {
+      "name": "classifier__tol",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__epsilon",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "classifier__learning_rate",
+      "type": "categorical",
+      "choices": ["optimal", "invscaling", "constant"],
+      "default": "invscaling",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__eta0",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-7,
+      "upper": 0.1,
+      "default": 0.01
+    },
+    {
+      "name": "classifier__power_t",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 1e-5,
+      "upper": 1.0,
+      "default": 0.5
+    },
+    {
+      "name": "classifier__average",
+      "type": "categorical",
+      "choices": [false, true],
+      "default": false,
+      "probabilities": null
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [
+    {
+      "type": "equals",
+      "child": "classifier__l1_ratio",
+      "parent": "classifier__penalty",
+      "value": "elasticnet"
+    },
+    {
+      "type": "equals",
+      "child": "classifier__epsilon",
+      "parent": "classifier__loss",
+      "value": "modified_huber"
+    },
+    {
+      "type": "equals",
+      "child": "classifier__power_t",
+      "parent": "classifier__learning_rate",
+      "value": "invscaling"
+    },
+    {
+      "type": "in",
+      "child": "classifier__eta0",
+      "parent": "classifier__learning_rate",
+      "values": ["invscaling", "constant"]
+    }
+  ],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}

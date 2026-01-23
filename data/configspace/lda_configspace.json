@@ -1,0 +1,46 @@
+{
+  "name": "sklearn.discriminant_analysis.LinearDiscriminantAnalysis",
+  "hyperparameters": [
+    {
+      "name": "classifier__shrinkage",
+      "type": "categorical",
+      "choices": ["None", "auto", "manual"],
+      "default": "None",
+      "probabilities": null
+    },
+    {
+      "name": "classifier__shrinkage_factor",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 1.0,
+      "default": 0.5
+    },
+    {
+      "name": "classifier__tol",
+      "type": "uniform_float",
+      "log": true,
+      "lower": 1e-5,
+      "upper": 0.1,
+      "default": 0.0001
+    },
+    {
+      "name": "imputation__strategy",
+      "type": "categorical",
+      "choices": ["mean", "median", "most_frequent"],
+      "default": "mean",
+      "probabilities": null
+    }
+  ],
+  "conditions": [
+    {
+      "type": "equals",
+      "child": "classifier__shrinkage_factor",
+      "parent": "classifier__shrinkage",
+      "value": "manual"
+    }
+  ],
+  "forbiddens": [],
+  "python_module_version": "0.4.19",
+  "json_format_version": 0.2
+}
